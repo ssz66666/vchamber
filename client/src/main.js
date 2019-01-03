@@ -27,24 +27,38 @@ function write_document(id, text) {
 
 function send_message(message){
     // write_document('input','SEND')
-    while(!ws.onopen){
+    var wait_times = 0
+    while(ws.readyState != 1){
         //wait
+        wait_times++
         console.log("wait ws open")
+        //loopout after waiting for a certain period
+        //sleep function?
+        if(wait_times%100 == 0){
+            break;
+        }
     }
-    if(ws.onopen){
+    if(ws.readyState == 1){
         ws.send(message)
+        console.log('Send message:' + message)
     }
-    console.log('Send message:' + message)
 
     // console.log('websocket closed')
 }
 
 function close_ws(){
     // write_document('input','CLOSE')
-    if(!ws.onopen){
-        console.log("WS is not open")
+    // console.log(ws.readyState)
+    if(ws.readyState == 0){
+        console.log("WS has not been established yet")
     }
-    else{
+    else if(ws.readyState == 2){
+        console.log("WS is closing")
+    }
+    else if(ws.readyState == 3){
+        console.log("WS has already been closed")
+    }
+    else{ //readyState == 1 which means OPEN
         ws.close()
         console.log('Close Websocket')
     }
