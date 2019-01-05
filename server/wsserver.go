@@ -28,7 +28,7 @@ const (
 const (
 	heartbeatTimeOut = 30 * time.Second
 	// heartbeatPeriod  = heartbeatTimeOut * 9 / 10
-	broadcastPeriod = 5 * time.Second
+	broadcastPeriod = 1 * time.Second
 	writeWait       = 10 * time.Second
 )
 
