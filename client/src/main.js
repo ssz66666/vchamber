@@ -94,9 +94,9 @@ function close_ws(){
 }
 
 function estimate_latency(send_t, serve_t, rec_t) {
-    var cur_lat = (rec_t - send_t - serve_t) / 2.0;
-    console.log("current latency = " + cur_lat);
-    latencies[cur_index] = cur_lat;
+    var lat = (rec_t - send_t - serve_t) / 2.0;
+    console.log("current latency = " + lat);
+    latencies[cur_index] = lat;
     if(bef_index >= 0) {
         if(movings.length > 0)
             old_moving = movings[mov_index - 1];
