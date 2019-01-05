@@ -22,6 +22,7 @@ const (
 	roomMessageQueueSize = 256
 	clientSendQueueSize  = 32
 	clientRecvQueueSize  = 32
+	keyLength            = 32
 )
 
 const (
@@ -46,20 +47,18 @@ type Room struct {
 	recvQueue chan *Message          // deserialise early in parallel in separate goroutines
 	enqClient chan *ClientConn
 	deqClient chan *ClientConn
+	masterKey string
+	guestKey  string
+	state     *PlaybackState
 	server    *Server
 }
 
-type clientState struct {
-	s     clientInternalState
-	mutex sync.RWMutex
-}
-
-type clientInternalState int
+type clientState int
 
 const (
-	clientAwaitAuth clientInternalState = iota
-	clientInRoomEstablished
-	clientInRoomAwaitReAuth
+	clientStateUnauthorised clientState = iota
+	clientStateGuest
+	clientStateMaster
 )
 
 // ClientConn encapsulates an established client websocket connection
@@ -67,13 +66,11 @@ type ClientConn struct {
 	ID        string
 	conn      *websocket.Conn
 	recvQueue chan *Message
-	sendQueue chan []byte
+	sendQueue chan *Message
 	closing   chan bool
 	state     clientState
 	room      *Room
 }
-
-var bindaddr = flag.String("addr", ":8080", "HTTP Service bind address")
 
 var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  wsReadBufferSize,
@@ -81,6 +78,9 @@ var wsUpgrader = websocket.Upgrader{
 	Subprotocols: []string{
 		websocketSubprotocolMagicV1,
 	},
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	}, //disable origin check
 }
 
 // NewServer creates a new server struct
@@ -103,6 +103,7 @@ func (s *Server) Run() {
 				s.rooms[r.ID] = r
 				s.mutex.Unlock()
 				go r.RunManager()
+				log.Printf("room %s registered", r.ID)
 			}
 		case r := <-s.deqRoom:
 			if nil != r {
@@ -114,6 +115,7 @@ func (s *Server) Run() {
 					close(r.deqClient)
 				}
 				s.mutex.Unlock()
+				log.Printf("room %s deregistered", r.ID)
 			}
 		}
 	}
@@ -121,6 +123,8 @@ func (s *Server) Run() {
 
 // RunManager manages room r
 func (r *Room) RunManager() {
+	// TODO: start a timer to shut down itself after being master-less for a while
+
 	updateTicker := time.NewTicker(broadcastPeriod)
 	defer func() {
 		updateTicker.Stop()
@@ -129,19 +133,25 @@ func (r *Room) RunManager() {
 	for {
 		select {
 		case m := <-r.recvQueue:
-			log.Printf("received message %v", m)
-			msg, _ := m.Serialise()
-			// rebroadcast the message
-			for id, c := range r.clients {
-				select {
-				case c.sendQueue <- msg:
-				default:
-					delete(r.clients, id)
-					close(c.sendQueue)
-					close(c.recvQueue)
-					close(c.closing)
-				}
+			switch m.Type {
+			case MessageTypeStateUpdate:
+				// TODO: we need to somehow handle conflicting state updates
+				// TODO: when we have duration we can then make the video stop as it ends
+
+				var p *PlaybackStateUpdateMessage
+				p = m.Payload.(*PlaybackStateUpdateMessage)
+
+				log.Printf("received state update from %s, new state %v", m.Sender, p.State)
+
+				r.state.source = p.State.Source
+				r.state.status = p.State.Status
+				r.state.speed = p.State.Speed
+
+				newPos := p.State.Position + (p.RTT/2.0)*p.State.Speed
+				r.state.position = newPos
+				r.state.lastUpdated = time.Now()
 			}
+
 		case c := <-r.enqClient:
 			if nil != c {
 				r.clients[c.ID] = c
@@ -158,9 +168,22 @@ func (r *Room) RunManager() {
 				}
 			}
 		case <-updateTicker.C:
-			m, _ := (&Message{"", "update message: " + time.Now().String()}).Serialise()
+			st := r.state
+			newPos := st.position
+			if st.status == PlaybackStatusPlaying {
+				newPos += time.Since(st.lastUpdated).Seconds() * st.speed
+			}
+			m := Message{
+				Type: MessageTypeStateBroadcast,
+				Payload: &PlaybackStateMessage{
+					Source:   st.source,
+					Status:   st.status,
+					Position: newPos,
+					Speed:    st.speed,
+				},
+			}
 			for _, c := range r.clients {
-				c.sendQueue <- m
+				c.sendQueue <- &m
 			}
 		}
 
@@ -168,26 +191,58 @@ func (r *Room) RunManager() {
 }
 
 // NewRoom creates a room with given id and server with no clients
-func NewRoom(id string, server *Server) *Room {
+func NewRoom(id string, server *Server, mKey string, gKey string) *Room {
 	return &Room{
 		ID:        id,
 		clients:   make(map[string]*ClientConn),
 		recvQueue: make(chan *Message, roomMessageQueueSize),
 		enqClient: make(chan *ClientConn),
 		deqClient: make(chan *ClientConn),
-		server:    server,
+		masterKey: mKey,
+		guestKey:  gKey,
+		state: &PlaybackState{
+			source:      "",
+			status:      PlaybackStatusStopped,
+			position:    0.0,
+			speed:       1.0,
+			lastUpdated: time.Now(),
+		},
+		server: server,
 	}
 }
 
+// NewRoomWithRandomKeys is a helper function to create a new room with random keys
+func NewRoomWithRandomKeys(id string, server *Server) (*Room, string, string, error) {
+	mKey, e1 := GenerateKey(keyLength)
+	gKey, e2 := GenerateKey(keyLength)
+	if e1 != nil {
+		return nil, "", "", e1
+	}
+	if e2 != nil {
+		return nil, "", "", e2
+	}
+	return NewRoom(id, server, mKey, gKey), mKey, gKey, nil
+}
+
+// CheckMasterKey verifies key with the room's master key
+func (r *Room) CheckMasterKey(key string) bool {
+	return key == r.masterKey
+}
+
+// CheckGuestKey verifies key with the room's guest key
+func (r *Room) CheckGuestKey(key string) bool {
+	return key == r.guestKey
+}
+
 // NewClientConn creates a client websocket connection wrapper
-func NewClientConn(id string, room *Room, conn *websocket.Conn) *ClientConn {
+func NewClientConn(id string, room *Room, conn *websocket.Conn, state clientState) *ClientConn {
 	return &ClientConn{
 		ID:        id,
 		conn:      conn,
 		recvQueue: make(chan *Message, clientRecvQueueSize),
-		sendQueue: make(chan []byte, clientSendQueueSize),
+		sendQueue: make(chan *Message, clientSendQueueSize),
 		closing:   make(chan bool),
-		state:     clientState{clientAwaitAuth, sync.RWMutex{}},
+		state:     state,
 		room:      room,
 	}
 }
@@ -231,8 +286,15 @@ func (c *ClientConn) handleWSClientSend() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
+			if msg.Type == MessageTypePong {
+				// compute the service time
+				var p *PongMessage
+				p = (msg.Payload.(*PongMessage))
+				p.SvcTime = time.Since(msg.ReceivedAt).Seconds()
+			}
+			b, _ := msg.Serialise()
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			err := c.conn.WriteMessage(websocket.TextMessage, msg)
+			err := c.conn.WriteMessage(websocket.TextMessage, b)
 			if err != nil {
 				return
 			}
@@ -251,10 +313,33 @@ func (c *ClientConn) handleVChamberClient() {
 
 			// TODO: handle client specific part of the protocol
 			// e.g. authentication
-
-			// put it straight onto room's recvqueue
 			m.Sender = c.ID
-			c.room.recvQueue <- m
+
+			switch m.Type {
+			case MessageTypePing:
+				var p *PingMessage
+				p = m.Payload.(*PingMessage)
+
+				var pong = Message{
+					ReceivedAt: m.ReceivedAt,
+					Type:       MessageTypePong,
+					Payload: &PongMessage{
+						Timestamp: p.Timestamp,
+					},
+				}
+				c.sendQueue <- &pong
+
+			case MessageTypeStateUpdate:
+				if c.state == clientStateMaster {
+					c.room.recvQueue <- m
+				} else {
+					// otherwise we silently drop it
+					log.Println("non master attempted to change room state")
+				}
+
+			default:
+				// silently drop the message
+			}
 		case <-c.closing:
 			return
 		}
@@ -283,6 +368,21 @@ func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// token check
+	token := q.Get("token")
+	cState := clientStateUnauthorised
+	if room.CheckMasterKey(token) {
+		cState = clientStateMaster
+	} else if room.CheckGuestKey(token) {
+		cState = clientStateGuest
+	}
+
+	if cState == clientStateUnauthorised {
+		log.Println("client", r.RemoteAddr, "supplied invalid token", token)
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -292,32 +392,60 @@ func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
 	// TODO: check conn.Subprotocol to make sure the correct protocol is negotiated
 
 	cid := xid.New().String()
-	client := NewClientConn(cid, room, conn)
+	client := NewClientConn(cid, room, conn, cState)
 
 	go client.handleVChamberClient()
 	go client.handleWSClientSend()
 	go client.handleWSClientRecv()
 
+	cType := ""
+	if cState == clientStateMaster {
+		cType = "master"
+	} else if cState == clientStateGuest {
+		cType = "guest"
+	}
+	client.sendQueue <- &Message{
+		Type: MessageTypeHello,
+		Payload: &HelloMessage{
+			ClientType: cType,
+		}}
 	room.enqClient <- client
-	log.Printf("client %s from %s joined room %s", cid, conn.RemoteAddr(), roomid)
+	log.Printf("%s client %s from %s joined room %s", cType, cid, conn.RemoteAddr(), roomid)
 }
+
+// NewVChamberWSMux makes the websocket servemux of server
+func NewVChamberWSMux(server *Server) http.Handler {
+	wsMux := http.NewServeMux()
+
+	wsMux.HandleFunc("/", http.NotFound)
+	wsMux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		handleWSClient(server, w, r)
+	})
+	return wsMux
+}
+
+var wsaddr = flag.String("ws", ":8080", "WebSocket Service bind address")
+var restaddr = flag.String("rest", ":8081", "RESTful API bind address")
 
 func main() {
 
 	flag.Parse()
 
 	server := NewServer()
+
+	wsMux := NewVChamberWSMux(server)
+
+	restMux := NewVChamberRestMux(server)
+
 	go server.Run()
-	server.enqRoom <- NewRoom("testroom", server)
+	server.enqRoom <- NewRoom("testroom", server, "iamgod", "nobody")
 
-	http.HandleFunc("/", http.NotFound)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		handleWSClient(server, w, r)
-	})
-
+	go func() {
+		log.Fatal("RESTful API: ", http.ListenAndServe(*restaddr, restMux))
+	}()
 	// TODO: use TLS
-	err := http.ListenAndServe(*bindaddr, nil)
+	err := http.ListenAndServe(*wsaddr, wsMux)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal("WSServer: ", err)
 	}
 }
