@@ -4,6 +4,15 @@
 
 var ws = new WebSocket("wss://echo.websocket.org");
 
+var msg_type = {
+    hello: 0,
+    ping: 1,
+    pong: 2,
+    state: 3,
+    stateupdate: 4,
+    reserved: 5
+};
+
 // Variables for estimating latency
 var lat_winsize = 20;
 var cur_index = 0;
@@ -19,11 +28,15 @@ var movings = new Array();
 
 ws.onopen = function(evt) {
     console.log("Connection open ...");
+
+    //send ping message first
+    send_ping();
 };
 
 ws.onmessage = function(evt) {
     console.log( "Received Message: " + evt.data);
 
+    var rec_time = new Date() / 1000;
     var rec = JSON.parse(evt.data);
     //logic part
     switch(rec.type) {
@@ -33,14 +46,15 @@ ws.onmessage = function(evt) {
             break;
         //get PONG
         case 2:
-            var rec_time = new Date() / 1000;
             var time_info = JSON.parse(rec.payload);
             var send_time = time_info.sendtime;
             var serv_time = time_info.servicetime;
 
             estimate_latency(send_time, serv_time, rec_time);
 
-
+            setTimeout(send_ping(), 1000);
+            break;
+        default:
             break;
     }
 };
@@ -93,6 +107,12 @@ function close_ws(){
     }
 }
 
+function send_ping() {
+    var send_time = new Date() / 1000;
+    var payload = '{"sendtime":' + send_time + '}';
+    var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
+}
+
 function estimate_latency(send_t, serve_t, rec_t) {
     var lat = (rec_t - send_t - serve_t) / 2.0;
     console.log("current latency = " + lat);
@@ -130,7 +150,7 @@ function estimate_latency(send_t, serve_t, rec_t) {
             // Update ucl and lcl for outside case
             ucl = sample_mean + 3 * moving_mean / 1.128;
             lcl = sample_mean - 3 * moving_mean / 1.128;
-            console.log("outside");
+            console.log("Latency: outside");
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
         console.log("Estimation: " + estimation);
