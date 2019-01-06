@@ -46,13 +46,13 @@ ws.onmessage = function(evt) {
             break;
         //get PONG
         case 2:
-            var time_info = JSON.parse(rec.payload);
+            var time_info = rec.payload;
             var send_time = time_info.sendtime;
             var serv_time = time_info.servicetime;
 
             estimate_latency(send_time, serv_time, rec_time);
 
-            setTimeout(send_ping(), 1000);
+            send_ping();
             break;
         default:
             break;
@@ -111,11 +111,23 @@ function send_ping() {
     var send_time = new Date() / 1000;
     var payload = '{"sendtime":' + send_time + '}';
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
+    setTimeout(function() {ws.send(send_data);}, 1000);
+}
+
+function average(data){
+    var sum = data.reduce(function(sum, value){
+        return sum + value;
+    }, 0);
+
+    var avg = sum / data.length;
+    return avg;
 }
 
 function estimate_latency(send_t, serve_t, rec_t) {
+    serve_t = Number((serve_t).toFixed(3));
     var lat = (rec_t - send_t - serve_t) / 2.0;
-    console.log("current latency = " + lat);
+    // console.log("current latency = " + lat);
+
     latencies[cur_index] = lat;
     if(bef_index >= 0) {
         if(movings.length > 0)
@@ -126,7 +138,7 @@ function estimate_latency(send_t, serve_t, rec_t) {
     }
     cur_index++;
     if(cur_index >= lat_winsize) cur_index = 0;
-    // lat_index = lat_winsize % (lat_index + 1); // why error??
+
     bef_index++;
     if(bef_index >= lat_winsize) bef_index = 0;
 
@@ -150,9 +162,9 @@ function estimate_latency(send_t, serve_t, rec_t) {
             // Update ucl and lcl for outside case
             ucl = sample_mean + 3 * moving_mean / 1.128;
             lcl = sample_mean - 3 * moving_mean / 1.128;
-            console.log("Latency: outside");
+            // console.log("Latency: outside");
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
-        console.log("Estimation: " + estimation);
+        // console.log("Estimation: " + estimation);
     }
 }
