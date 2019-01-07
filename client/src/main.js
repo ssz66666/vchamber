@@ -4,6 +4,18 @@
 
 var ws = new WebSocket("wss://echo.websocket.org");
 
+var local_status = 0;
+var local_position = 0.0;
+var local_speed = 1.0;
+var local_rtt = 0.0;
+
+var playback_status_type = {
+    stopped: 0,
+    playing: 1,
+    paused: 2,
+    error: 3
+};
+
 var msg_type = {
     hello: 0,
     ping: 1,
@@ -54,6 +66,24 @@ ws.onmessage = function(evt) {
 
             setTimeout(send_ping(), 1000);
             break;
+        //get STATE
+        case 3:
+            var playback_state = JSON.parse(rec.payload);
+            var src = playback_state.src;//url?use?
+            var playback_status = playback_state.status;
+            var playback_position = playback_state.position + local_rtt/2;
+            var playback_speed = playback_state.speed;
+            if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
+                local_position = playback_position;
+            }
+            local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
+            local_speed = playback_speed;
+            break;
+        //get STATEUPDATE
+        case 4:
+            console.error("On message should not receive STATEUPDATE")
+            //not the case, should be send message
+            break;
         default:
             break;
     }
@@ -66,6 +96,10 @@ ws.onclose = function(evt) {
 
 function write_document(id, text) {
     document.getElementById(id).innerHTML = text;
+}
+
+function sendStateUpdate(){
+    //should be used together with webpage
 }
 
 function send_message(message){
@@ -154,5 +188,6 @@ function estimate_latency(send_t, serve_t, rec_t) {
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
         console.log("Estimation: " + estimation);
+        local_rtt = estimation;
     }
 }
