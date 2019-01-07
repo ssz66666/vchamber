@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -36,6 +36,7 @@ type PlaybackStateMessage struct {
 	Status   PlaybackStatus `json:"status"`
 	Position float64        `json:"position"`
 	Speed    float64        `json:"speed"`
+	Duration float64        `json:"duration"`
 }
 
 type PlaybackStateUpdateMessage struct {

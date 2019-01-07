@@ -1,4 +1,4 @@
-package main
+package server
 
 import "time"
 
@@ -18,5 +18,6 @@ type PlaybackState struct {
 	status      PlaybackStatus
 	position    float64
 	speed       float64
+	duration    float64
 	lastUpdated time.Time
 }

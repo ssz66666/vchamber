@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -13,14 +13,19 @@ const (
 	roomCreationTimeOut = 5 * time.Second
 )
 
-type roomCreatedMsg struct {
+type ServerInfoMsg struct {
+	OK    bool `json:"ok"`
+	NRoom int  `json:"nroom"`
+}
+
+type RoomCreatedMsg struct {
 	OK        bool   `json:"ok"`
 	RoomID    string `json:"roomID"`
 	MasterKey string `json:"masterToken"`
 	GuestKey  string `json:"guestToken"`
 }
 
-func respondWithJSON(m interface{}, statusCode int, w http.ResponseWriter) {
+func RespondWithJSON(m interface{}, statusCode int, w http.ResponseWriter) {
 
 	payload, _ := json.Marshal(m)
 	w.Header().Set("Content-Type", "application/json")
@@ -28,32 +33,43 @@ func respondWithJSON(m interface{}, statusCode int, w http.ResponseWriter) {
 	w.Write(payload)
 }
 
-func respondWithError(reason string, statusCode int, w http.ResponseWriter) {
-	respondWithJSON(map[string]interface{}{
+func RespondWithError(reason string, statusCode int, w http.ResponseWriter) {
+	RespondWithJSON(map[string]interface{}{
 		"ok":     false,
 		"reason": reason,
 	}, statusCode, w)
+}
+
+func getNRoom(s *Server, w http.ResponseWriter, r *http.Request) {
+	s.mutex.RLock()
+	nr := len(s.rooms)
+	s.mutex.RUnlock()
+	RespondWithJSON(&ServerInfoMsg{
+		true,
+		nr,
+	}, http.StatusOK, w)
 }
 
 func createRoom(s *Server, w http.ResponseWriter, r *http.Request) {
 	rid := xid.New().String()
 	room, mk, gk, err := NewRoomWithRandomKeys(rid, s)
 	if err != nil {
-		respondWithError("An internal error occurred.",
+		RespondWithError("An internal error occurred.",
 			http.StatusInternalServerError, w)
 		return
 	}
+	t := time.After(roomCreationTimeOut)
 	select {
 	case s.enqRoom <- room:
-		rsp := roomCreatedMsg{
+		rsp := RoomCreatedMsg{
 			true,
 			rid,
 			mk,
 			gk,
 		}
-		respondWithJSON(rsp, http.StatusOK, w)
-	case <-time.After(roomCreationTimeOut):
-		respondWithError(
+		RespondWithJSON(rsp, http.StatusOK, w)
+	case <-t:
+		RespondWithError(
 			"Room creation timed out.",
 			http.StatusRequestTimeout,
 			w,
@@ -62,7 +78,7 @@ func createRoom(s *Server, w http.ResponseWriter, r *http.Request) {
 }
 
 func destroyRoom(s *Server, w http.ResponseWriter, r *http.Request) {
-	respondWithError("DestroyRoom not implemented", http.StatusNotImplemented, w)
+	RespondWithError("DestroyRoom not implemented", http.StatusNotImplemented, w)
 }
 
 // NewVChamberRestMux makes the RESTful API servemux of server
