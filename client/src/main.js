@@ -71,7 +71,7 @@ ws.onmessage = function(evt) {
             var playback_state = JSON.parse(rec.payload);
             var src = playback_state.src;//url?use?
             var playback_status = playback_state.status;
-            var playback_position = playback_state.position + local_rtt/2;
+            var playback_position = playback_state.position + local_rtt;
             var playback_speed = playback_state.speed;
             if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
                 local_position = playback_position;
