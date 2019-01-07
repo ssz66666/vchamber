@@ -2,7 +2,8 @@
  * Created by luweijia on 2018/12/21.
  */
 
-var ws = new WebSocket("wss://echo.websocket.org");
+//var ws = new WebSocket("wss://echo.websocket.org");
+var ws = new WebSocket("ws://localhost:8083/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 var msg_type = {
     hello: 0,
@@ -167,4 +168,13 @@ function estimate_latency(send_t, serve_t, rec_t) {
         estimation = alpha * estimation + (1 - alpha) * lat;
         // console.log("Estimation: " + estimation);
     }
+}
+
+function create_room() {
+    console.log("Send room");
+    $.get("http://localhost:8083/ws?rid=testroom&token=iamgod", function(data, status){
+        console.log("Data: " + data + "\nStatus: " + status);
+    });
+
+    // location.href="notice/List.jsp";
 }
