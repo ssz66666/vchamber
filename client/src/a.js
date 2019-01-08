@@ -36,14 +36,14 @@ on('.js-forward', 'click', () => {
 
 var ws = new WebSocket("wss://echo.websocket.org");
 
-var local_src = '';
-var master_client = false;
+//var local_src = '';
+var master_client = true;
 var src_change = false;
 var status_change = false;
 var rate_change = false;
-var local_status = 0;
-var local_position = 0.0;
-var local_speed = 1.0;
+// var local_status = 0;
+// var local_position = 0.0;
+// var local_speed = 1.0;
 var local_rtt = 0.0;
 
 var playback_status_type = {
@@ -110,31 +110,46 @@ ws.onmessage = function(evt) {
             var playback_status = playback_state.status;
             var playback_position = playback_state.position + local_rtt;
             var playback_speed = playback_state.speed;
-            if(local_src!=src){
-                local_src = src;
+            //src change without type change
+            if(player.source!=src){
+                player.source = src;
                 src_change = true;
             }
             else{
                 src_change = false;
             }
-            if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
-                local_position = playback_position;
+            if(player.media.currentTime - playback_position > 0.5 || player.media.currentTime - playback_position < -0.5){
+                if(playback_position == 0){
+                    console.log("000000 RECEIVE")
+                }
+                player.media.currentTime = playback_position;
             }
-            if(local_status != playback_status){
-                local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
+            if(playback_status == playback_status_type.stopped && !player.stopped){
+                //some bug here
+                console.log('STOP RECEIVED');
+                player.stop();
+                status_change = true;
+            }
+            else if(playback_status == playback_status_type.playing && !player.playing){
+                console.log('PLAYING RECEIVED');
+                player.play();
+                status_change = true;
+            }
+            else if(playback_status == playback_status_type.paused && !player.paused){
+                console.log('PAUSE RECEIVED');
+                player.pause();
                 status_change = true;
             }
             else{
                 status_change = false;
             }
-            if(local_speed != playback_speed){
-                local_speed = playback_speed;
+            if(player.media.playbackRate != playback_speed){
+                player.media.playbackRate = playback_speed;
                 rate_change = true;
             }
             else{
                 rate_change = false;
             }
-            stateUpdate();
             break;
         //get STATEUPDATE
         case 4:
@@ -146,72 +161,72 @@ ws.onmessage = function(evt) {
     }
 };
 
-function receiveTest(){
-    var type = 3;
-    var rece = '{"status":"2", "position":100, "speed":2.0, "src":"t.mp4"}'
-    //var rece = '{"type": "3", "payload": "[{"status": "2", "position": "100", "speed":"2.0", "src":"t.mp4"}]"}'
-    var rec_time = new Date() / 1000;
-    var rec = rece;//JSON.parse(rece);
-    //console.log("receive json: " + rec.type + rec.payload);
-//logic part
-    switch(type) {
-        //get HELLO
-        case 0:
-
-            break;
-        //get PONG
-        case 2:
-            var time_info = JSON.parse(rec);
-            var send_time = time_info.sendtime;
-            var serv_time = time_info.servicetime;
-
-            estimate_latency(send_time, serv_time, rec_time);
-
-            setTimeout(send_ping(), 1000);
-            break;
-        //get STATE
-        case 3:
-            var playback_state = JSON.parse(rec);
-            console.log("STATE:"+playback_state);
-            var src = playback_state.src;//url?use?
-            var playback_status = playback_state.status;
-            var playback_position = playback_state.position + local_rtt;
-            var playback_speed = playback_state.speed;
-            if(local_src!=src){
-                local_src = src;
-                src_change = true;
-            }
-            else{
-                src_change = false;
-            }
-            if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
-                local_position = playback_position;
-            }
-            if(local_status != playback_status){
-                local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
-                status_change = true;
-            }
-            else{
-                status_change = false;
-            }
-            if(local_speed != playback_speed){
-                local_speed = playback_speed;
-                rate_change = true;
-            }
-            else{
-                rate_change = false;
-            }
-            stateUpdate();
-            break;
-        //get STATEUPDATE
-        case 4:
-            console.error("On message should not receive STATEUPDATE")
-            //not the case, should be send message
-            break;
-        default:
-            break;
-    }
-}
+// function receiveTest(){
+//     var type = 3;
+//     var rece = '{"status":"2", "position":100, "speed":2.0, "src":"t.mp4"}'
+//     //var rece = '{"type": "3", "payload": "[{"status": "2", "position": "100", "speed":"2.0", "src":"t.mp4"}]"}'
+//     var rec_time = new Date() / 1000;
+//     var rec = rece;//JSON.parse(rece);
+//     //console.log("receive json: " + rec.type + rec.payload);
+// //logic part
+//     switch(type) {
+//         //get HELLO
+//         case 0:
+//
+//             break;
+//         //get PONG
+//         case 2:
+//             var time_info = JSON.parse(rec);
+//             var send_time = time_info.sendtime;
+//             var serv_time = time_info.servicetime;
+//
+//             estimate_latency(send_time, serv_time, rec_time);
+//
+//             setTimeout(send_ping(), 1000);
+//             break;
+//         //get STATE
+//         case 3:
+//             var playback_state = JSON.parse(rec);
+//             console.log("STATE:"+playback_state);
+//             var src = playback_state.src;//url?use?
+//             var playback_status = playback_state.status;
+//             var playback_position = playback_state.position + local_rtt;
+//             var playback_speed = playback_state.speed;
+//             if(local_src!=src){
+//                 local_src = src;
+//                 src_change = true;
+//             }
+//             else{
+//                 src_change = false;
+//             }
+//             if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
+//                 local_position = playback_position;
+//             }
+//             if(local_status != playback_status){
+//                 local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
+//                 status_change = true;
+//             }
+//             else{
+//                 status_change = false;
+//             }
+//             if(local_speed != playback_speed){
+//                 local_speed = playback_speed;
+//                 rate_change = true;
+//             }
+//             else{
+//                 rate_change = false;
+//             }
+//             stateUpdate();
+//             break;
+//         //get STATEUPDATE
+//         case 4:
+//             console.error("On message should not receive STATEUPDATE")
+//             //not the case, should be send message
+//             break;
+//         default:
+//             break;
+//     }
+// }
 
 ws.onclose = function(evt) {
     console.log("Connection closed.");
@@ -222,7 +237,6 @@ ws.onclose = function(evt) {
 player.on('pause', function () {
     console.log('PAUSE DETECTED');
     if(true){
-        local_status = playback_status_type.paused;
         var message = stateToJsonString();
         send_message(message);
     }
@@ -230,7 +244,7 @@ player.on('pause', function () {
 
 player.on('playing', function () {
     console.log('PLAYING DETECTED');
-    local_status = playback_status_type.playing;
+    // console.log(player.source)
     if(true){
         var message = stateToJsonString();
         send_message(message);
@@ -239,7 +253,6 @@ player.on('playing', function () {
 
 player.on('ended', function () {
     console.log('ENDED DETECTED');
-    local_status = playback_status_type.stopped;
     if(true){
         var message = stateToJsonString();
         send_message(message);
@@ -249,7 +262,6 @@ player.on('ended', function () {
 player.on('ratechange', function () {
     console.log('RATE DETECTED');
     if(true){
-        local_speed = player.media.playbackRate;
         var message = stateToJsonString();
         send_message(message);
     }
@@ -264,6 +276,9 @@ function sendStateUpdate(){
 }
 
 function send_message(message){
+    if(master_client == false){
+        return;
+    }
     // write_document('input','SEND')
     var wait_times = 0
     while(ws.readyState != 1){
@@ -308,59 +323,70 @@ function send_ping() {
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
 }
 
-function stateUpdate(){
-    //DEBUG USE
-    console.log(player.media.currentSrc);
-    // console.log(player.media.paused);
-    // console.log(player.media.ended);
-    // console.log(player.media.muted);
-    console.log(player.media.state);
-    //setSrc
-    if(src_change){
-        //player.source.sources.src = local_src;
-        // player.source = {
-        //     type: 'video',
-        //     sources: [{
-        //         src: local_src,
-        //         provider: 'youtube'
-        //     }]
-        // };
-    }
-    //setStatus
-    if(local_status == playback_status_type.stopped && !player.stopped){
-        console.log('STOP ACTION');
-        player.stop();
-    }
-    else if(local_status == playback_status_type.playing && !player.playing){
-        console.log('PLAYING ACTION');
-        player.play();
-    }
-    else if(local_status == playback_status_type.paused && !player.paused){
-        console.log('PAUSE ACTION');
-        player.pause();
-    }
-
-    //setPosition
-    player.media.currentTime = local_position;
-
-    //setSpeed
-    if(player.media.playbackRate != local_speed) {
-        player.media.playbackRate = local_speed;
-    }
-
-}
+// function stateUpdate(){
+//     //DEBUG USE
+//     console.log(player.media.currentSrc);
+//     // console.log(player.media.paused);
+//     // console.log(player.media.ended);
+//     // console.log(player.media.muted);
+//     console.log(player.media.state);
+//     //setSrc
+//     if(src_change){
+//         //player.source.sources.src = local_src;
+//         // player.source = {
+//         //     type: 'video',
+//         //     sources: [{
+//         //         src: local_src,
+//         //         provider: 'youtube'
+//         //     }]
+//         // };
+//     }
+//     //setStatus
+//     if(local_status == playback_status_type.stopped && !player.stopped){
+//         console.log('STOP ACTION');
+//         player.stop();
+//     }
+//     else if(local_status == playback_status_type.playing && !player.playing){
+//         console.log('PLAYING ACTION');
+//         player.play();
+//     }
+//     else if(local_status == playback_status_type.paused && !player.paused){
+//         console.log('PAUSE ACTION');
+//         player.pause();
+//     }
+//
+//     //setPosition
+//     player.media.currentTime = local_position;
+//
+//     //setSpeed
+//     if(player.media.playbackRate != local_speed) {
+//         player.media.playbackRate = local_speed;
+//     }
+//
+// }
 
 function stateToJsonString(){
+    var temp_status;
+    if(player.paused){
+        temp_status = playback_status_type.paused;
+    }
+    else if(player.stopped){
+        temp_status = playback_status_type.stopped;
+    }
+    else if(player.playing){
+        temp_status = playback_status_type.playing;
+    }
     var state =
         {
-            "type":msg_type.state,
+            "type":msg_type.state,//should be STATEUPDATE here
             "payload": {
-                "src":local_src,
-                "status":local_status,
-                "position":local_position,
-                "speed":local_speed
+                "src":player.source,
+                "status":temp_status,
+                "position":player.media.currentTime,
+                "speed":player.media.playbackRate
             }
         };
+    console.log("JSON"+player.media.currentTime);
     return JSON.stringify(state);
 }
 
