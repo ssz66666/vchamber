@@ -63,7 +63,10 @@ func (sch *Scheduler) NextBackend() string {
 	// broadcasted info
 
 	// randomly choose a backend
-	return sch.pool.Get().Host()
+	sch.mutex.RLock()
+	h := sch.pool.Get().Host()
+	sch.mutex.RUnlock()
+	return h
 
 }
 
@@ -80,6 +83,8 @@ func (sch *Scheduler) RunScheduler() {
 func (sch *Scheduler) PollSchedulingInfo() {
 	// poll from orchestrator
 	// TODO: implement this if time allows
+	sch.mutex.Lock()
+	defer sch.mutex.Unlock()
 }
 
 func (sch *Scheduler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
