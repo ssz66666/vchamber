@@ -8,6 +8,7 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6 // indirect
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
+	github.com/rs/cors v1.6.0
 	github.com/rs/xid v1.2.1
 	github.com/stretchr/testify v1.3.0 // indirect
 )

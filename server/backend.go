@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
+	"github.com/rs/cors"
 )
 
 var wsaddr = flag.String("ws", ":8080", "WebSocket Service bind address")
@@ -26,7 +27,8 @@ func main() {
 	server.AddRoom(vserver.NewRoom("testroom", server, "iamgod", "nobody"))
 
 	go func() {
-		log.Fatal("RESTful API: ", http.ListenAndServe(*restaddr, restMux))
+		withCORS := cors.Default().Handler(restMux)
+		log.Fatal("RESTful API: ", http.ListenAndServe(*restaddr, withCORS))
 	}()
 	// TODO: use TLS
 	go func() {
