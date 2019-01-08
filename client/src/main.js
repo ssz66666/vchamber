@@ -2,8 +2,14 @@
  * Created by luweijia on 2018/12/21.
  */
 
-//var ws = new WebSocket("wss://echo.websocket.org");
-var ws = new WebSocket("ws://localhost:8083/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var ws;
+var rid;
+var m_token;
+var g_token;
+
+const api_url = "http://localhost:8081/";
+const ws_url = "ws://localhost:8080/ws";
+//var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 var msg_type = {
     hello: 0,
@@ -171,10 +177,21 @@ function estimate_latency(send_t, serve_t, rec_t) {
 }
 
 function create_room() {
-    console.log("Send room");
-    $.get("http://localhost:8083/ws?rid=testroom&token=iamgod", function(data, status){
-        console.log("Data: " + data + "\nStatus: " + status);
+    $.ajax({
+        url: api_url + "room",
+        success: function(rec) {
+            if(rec.ok = true) {
+                var rid = rec.roomID;
+                var m_token = rec.masterToken;
+                var g_token = rec.guestToken;
+                var join_url = ws_url + "?rid=" + rid + "&token=" + m_token;
+                ws = new WebSocket(join_url, "vchamber_v1");
+                console.log("finish and go to media html");
+                window.location.href="test.html";
+            } else {
+                alert('You cannot create a room now');
+            }
+        },
+        error: function() { alert('Server has problem'); }
     });
-
-    // location.href="notice/List.jsp";
 }
