@@ -1,6 +1,9 @@
-var rid;
-var m_token;
-var g_token;
+// Handle join a room
+var params = window.location.search;
+if(params[0] == "?") {
+    localStorage.setItem("join", params);
+    window.location.href="test.html";
+}
 
 const api_url = "http://localhost:8081/";
 

@@ -7,10 +7,12 @@ var m_token = localStorage.getItem("m_token");
 var g_token = localStorage.getItem("g_token");
 
 var url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + m_token;
-var guest_url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + g_token;
 
-if(rid == "undefined")
-    url = localStorage.getItem("join");
+// For a guest
+var join = localStorage.getItem("join");
+if(join[0] == "?") {
+    url = "ws://localhost:8080/ws" + join;
+}
 
 var ws = new WebSocket(url, "vchamber_v1");
 
