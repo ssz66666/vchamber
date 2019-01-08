@@ -2,12 +2,17 @@
  * Created by luweijia on 2018/12/21.
  */
 
-var ws;
-var rid;
-var m_token;
-var g_token;
+var rid = localStorage.getItem("rid");
+var m_token = localStorage.getItem("m_token");
+var g_token = localStorage.getItem("g_token");
 
-var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + m_token;
+var guest_url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + g_token;
+
+if(rid == "undefined")
+    url = localStorage.getItem("join");
+
+var ws = new WebSocket(url, "vchamber_v1");
 
 var msg_type = {
     hello: 0,
