@@ -33,7 +33,7 @@ spec:
     protocol: TCP
     targetPort: 8080
   - name: restful
-    port: 80
+    port: 8081
     protocol: TCP
     targetPort: 8081
   selector:
