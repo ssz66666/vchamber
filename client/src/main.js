@@ -93,13 +93,13 @@ function send_message(message){
 function close_ws(){
     // write_document('input','CLOSE')
     // console.log(ws.readyState)
-    if(ws.readyState == 0){
+    if(ws.readyState == WebSocket.CONNECTING){
         console.log("WS has not been established yet")
     }
-    else if(ws.readyState == 2){
+    else if(ws.readyState == WebSocket.CLOSING){
         console.log("WS is closing")
     }
-    else if(ws.readyState == 3){
+    else if(ws.readyState == WebSocket.CLOSED){
         console.log("WS has already been closed")
     }
     else{ //readyState == 1 which means OPEN
