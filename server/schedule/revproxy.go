@@ -10,11 +10,15 @@ import (
 	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
 )
 
+// LoadBalancedReverseProxy is a reverse proxy that serves as an entry point
+// for multiple backend servers
 type LoadBalancedReverseProxy struct {
 	reg   ReadOnlyStorage
 	conns *sync.Map
 }
 
+// NewLoadBalancedReverseProxy creates a new reverse proxy with the specific in-memory
+// database (room registry) source
 func NewLoadBalancedReverseProxy(roomReg ReadOnlyStorage) *LoadBalancedReverseProxy {
 	var m sync.Map
 	return &LoadBalancedReverseProxy{

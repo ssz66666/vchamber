@@ -5,13 +5,16 @@ import (
 	"sync"
 )
 
+// StorageBackendType is an int specifying the backend type
 type StorageBackendType int
 
+// ReadOnlyStorage is an interface defining a read-only map[string]string key-value store
 type ReadOnlyStorage interface {
 	BackendType() StorageBackendType
 	Get(string) string
 }
 
+// Storage is an interface defining a read-write map[string]string key-value store
 type Storage interface {
 	BackendType() StorageBackendType
 	Get(string) string
@@ -47,11 +50,13 @@ func (b *memBackend) BackendType() StorageBackendType {
 	return StorageBackendMem
 }
 
+// StorageBackendType enum instances
 const (
 	StorageBackendMem StorageBackendType = iota
 	StorageBackendRedis
 )
 
+// NewStorageBackend creates a new store with given type and initialisation arguments
 func NewStorageBackend(typ StorageBackendType, args ...string) (Storage, error) {
 	switch typ {
 	case StorageBackendMem:

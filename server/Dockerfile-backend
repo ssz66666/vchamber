@@ -4,8 +4,8 @@ ADD . /vchamber
 
 WORKDIR /vchamber
 
-RUN go build -mod=vendor -o server
+RUN go build -mod=vendor -o backend backend.go
 
-ENTRYPOINT ["/vchamber/server"]
+ENTRYPOINT ["/vchamber/backend"]
 
 EXPOSE 8080 8081
