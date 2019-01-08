@@ -40,7 +40,7 @@ func RespondWithError(reason string, statusCode int, w http.ResponseWriter) {
 	}, statusCode, w)
 }
 
-func getNRoom(s *Server, w http.ResponseWriter, r *http.Request) {
+func getServerInfo(s *Server, w http.ResponseWriter, r *http.Request) {
 	s.mutex.RLock()
 	nr := len(s.rooms)
 	s.mutex.RUnlock()
@@ -88,8 +88,11 @@ func NewVChamberRestMux(server *Server) http.Handler {
 	restMux.HandleFunc("/room", func(w http.ResponseWriter, r *http.Request) {
 		createRoom(server, w, r)
 	}).Methods("GET", "POST")
+	restMux.HandleFunc("/server", func(w http.ResponseWriter, r *http.Request) {
+		getServerInfo(server, w, r)
+	}).Methods("GET")
 	restMux.HandleFunc("/room/{rid}", func(w http.ResponseWriter, r *http.Request) {
-		createRoom(server, w, r)
+		destroyRoom(server, w, r)
 	}).Methods("DELETE")
 	return restMux
 }

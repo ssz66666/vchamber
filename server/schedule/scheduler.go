@@ -1,17 +1,29 @@
 package schedule
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"sync"
 	"time"
 
+	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
 	hostpool "github.com/bitly/go-hostpool"
 )
 
 // configurable constants
 const (
 	SchedulingUpdatePeriod = 30 * time.Second
+)
+
+// url schemes for our backends
+var (
+	BackendWSScheme, _   = url.Parse("ws://example.com:8080")
+	BackendRESTScheme, _ = url.Parse("http://example.com:8081")
 )
 
 // Scheduler implements a RESTful API to create rooms, with the same API as implemented
@@ -103,8 +115,46 @@ func (sch *Scheduler) PollSchedulingInfo() {
 	// TODO: implement this if time allows
 	sch.mutex.Lock()
 	defer sch.mutex.Unlock()
+
 }
 
-func (sch *Scheduler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+// ProxyDirector returns a Director function for the reverseproxy
+func (sch *Scheduler) ProxyDirector() func(*http.Request) {
+	return func(req *http.Request) {
+		req.URL.Scheme = BackendRESTScheme.Scheme
+		req.URL.Host = sch.NextBackend()
+		if _, ok := req.Header["User-Agent"]; !ok {
+			req.Header.Set("User-Agent", "")
+		}
+	}
+}
 
+// RoomRegister returns a ModifyResponse function for the reverseproxy
+func (sch *Scheduler) RoomRegister() func(*http.Response) error {
+	return func(rsp *http.Response) error {
+		if rsp.StatusCode == http.StatusOK {
+			// register the room
+			b, err := ioutil.ReadAll(rsp.Body)
+			if err != nil {
+				return err
+			}
+			err = rsp.Body.Close()
+			if err != nil {
+				return err
+			}
+			var m vserver.RoomCreatedMsg
+			if err := json.Unmarshal(b, &m); err != nil {
+				return errors.New("Internal error during room creation")
+			}
+			sch.store.Set(m.RoomID, rsp.Request.URL.Host)
+			// put the original content back
+			rsp.Body = ioutil.NopCloser(bytes.NewReader(b))
+		}
+		return nil
+	}
+}
+
+// GetProxy returns the reverse proxy http.Handler
+func (sch *Scheduler) GetProxy() *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{Director: sch.ProxyDirector(), ModifyResponse: sch.RoomRegister()}
 }
