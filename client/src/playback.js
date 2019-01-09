@@ -58,7 +58,7 @@ var rate_change = false;
 // var local_status = 0;
 // var local_position = 0.0;
 // var local_speed = 1.0;
-var local_rtt = 0.0;
+var local_lat = 0.0;
 
 var playback_status_type = {
     stopped: 0,
@@ -237,11 +237,11 @@ var updateLocalState = function(newState){
     var playback_state = newState;
             var src = playback_state.src;//url?use?
             var playback_status = playback_state.status;
-            var playback_position = playback_state.position + local_rtt;
+            var playback_position = playback_state.position + local_lat;
             var playback_speed = playback_state.speed;
             missedLatestUpdate = false
 
-            var tolerance = Math.max((ucl - lcl) / 2, 0.1)
+            var tolerance = Math.max(local_lat, 0.1)
             if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
@@ -487,7 +487,7 @@ function stateToJsonString(){
     var payload =
         {
             // TODO: Ask hyun what local_rtt is? is it the RTT(round-trip-time) or the latency?
-            "rtt": local_rtt * 2.0, 
+            "rtt": local_lat * 2.0, 
             "state": {
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,
@@ -554,6 +554,6 @@ function estimate_latency(send_t, serve_t, rec_t) {
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
         // console.log("Estimation: " + estimation);
-        local_rtt = estimation;
+        local_lat = estimation;
     // }
 }
