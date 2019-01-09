@@ -4,7 +4,7 @@
 go mod vendor
 
 VERSION=$(date '+%Y-%m-%d-%H-%M-%S')-$(git rev-parse HEAD)
-REPO='iad.ocir.io/ssz/vchamber/'
+REPO='iad.ocir.io/ssz/vchamber'
 
 docker build -f Dockerfile-backend -t backend:$VERSION .
 
