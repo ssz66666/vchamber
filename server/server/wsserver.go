@@ -152,7 +152,10 @@ func (r *Room) UpdateState(p *PlaybackStateUpdateMessage, d time.Duration) {
 	r.state.speed = p.State.Speed
 	r.state.duration = p.State.Duration
 
-	newPos := p.State.Position + (p.RTT/2.0+d.Seconds())*p.State.Speed
+	newPos := p.State.Position
+	if r.state.status == PlaybackStatusPlaying {
+		newPos += (p.RTT/2.0 + d.Seconds()) * p.State.Speed
+	}
 	r.state.position = newPos
 	r.state.lastUpdated = time.Now()
 }
