@@ -46,10 +46,12 @@ on('.js-forward', 'click', () => {
 
 //var ws = new WebSocket("wss://echo.websocket.org");
 
-var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+//var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 //var local_src = '';
 var master_client = true;
+var load_finished = false;
 var src_change = false;
 var status_change = false;
 var rate_change = false;
@@ -232,7 +234,7 @@ var updateLocalState = function(newState){
             var playback_speed = playback_state.speed;
             latestStateUpdate = null
 
-            if((player.media.currentTime - playback_position > 0.5) || (player.media.currentTime - playback_position < -0.5)){
+            if((player.media.currentTime - playback_position > 2) || (player.media.currentTime - playback_position < -2)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
                 }
@@ -343,7 +345,12 @@ function sendStateUpdate(){
 }
 
 function send_message(message){
-    if(master_client == false){
+    if(master_client == false || player.media.duration == 0){
+        return;
+    }
+    if(!load_finished && JSON.parse(message).type == msg_type.stateupdate){
+        load_finished = true;
+        console.log("LOAD FINISHED");
         return;
     }
     // write_document('input','SEND')
