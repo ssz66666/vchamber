@@ -219,7 +219,6 @@ func (r *Room) RemoveClient(c *ClientConn) {
 
 // RunManager manages room r
 func (r *Room) RunManager() {
-	// TODO: start a timer to shut down itself after being master-less for a while
 
 	shutdownTimer := time.NewTimer(defaultMasterlessTimeout)
 	updateTicker := time.NewTicker(broadcastPeriod)
