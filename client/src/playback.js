@@ -90,20 +90,22 @@ var latencies = new Array();
 var movings = new Array();
 
 var clientStatus = ''
-var latestStateUpdate = null
+var latestStateUpdate
+var missedLatestUpdate = false
 var pingTicker
+var syncSeeking = false
+var firstClick = true
 
 ws.onopen = function(evt) {
     console.log("Connection open ...")
 
     //send ping message first
     send_ping()
-    addPlyrEventHandlers()
     pingTicker = setInterval(send_ping, PING_INTERVAL)
 };
 
 ws.onmessage = function(evt) {
-    console.log( "Received Message: " + evt.data);
+    // console.log( "Received Message: " + evt.data);
 
     var rec_time = new Date() / 1000;
     var rec = JSON.parse(evt.data);
@@ -125,11 +127,16 @@ ws.onmessage = function(evt) {
             break;
         //get STATE
         case 3:
+            console.log("State: " + evt.data)
             var playback_state = rec.payload
             var _src = playback_state.src;//url?use?
+
+            latestStateUpdate = playback_state
             //src change
             if(_src == '') {
                 // invalid source, ignore the remote state
+                removePlyrEventHandlers()
+                addPlyrEventHandlers()
                 break
             }
             var src = JSON.parse(decodeURIComponent(_src))
@@ -141,7 +148,7 @@ ws.onmessage = function(evt) {
             }
             if(player.seeking) {
                 // user is seeking right now, don't annoy the user just yet
-                latestStateUpdate = playback_state
+                missedLatestUpdate = true
                 break
             }
             updateLocalState(playback_state)
@@ -232,7 +239,7 @@ var updateLocalState = function(newState){
             var playback_status = playback_state.status;
             var playback_position = playback_state.position + local_rtt;
             var playback_speed = playback_state.speed;
-            latestStateUpdate = null
+            missedLatestUpdate = false
 
             var tolerance = Math.max((ucl - lcl) / 2, 0.1)
             if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
@@ -240,6 +247,7 @@ var updateLocalState = function(newState){
                     console.log("000000 RECEIVE")
                 }
                 removePlyrEventHandlers()
+                syncSeeking = true
                 player.currentTime = playback_position;
                 addPlyrEventHandlers()
             }
@@ -254,7 +262,11 @@ var updateLocalState = function(newState){
                 console.log('PLAYING RECEIVED');
                 removePlyrEventHandlers()
                 var pm = player.play();
-                pm.finally(()=> {
+                pm.then(()=> {
+                    addPlyrEventHandlers()
+                },
+                (e)=> {
+                    // autoplay got rejected
                     addPlyrEventHandlers()
                 })
             }
@@ -264,23 +276,39 @@ var updateLocalState = function(newState){
                 player.pause();
                 addPlyrEventHandlers()
             }
-            if(player.playbackRate != playback_speed){
+            if(player.speed != playback_speed){
                 removePlyrEventHandlers()
-                player.playbackRate = playback_speed;
+                player.speed = playback_speed;
                 addPlyrEventHandlers()
             }
 }
 
 var stateChanged = function(evt){
+    if (evt.detail.plyr.seeking) {
+        // intermediastate, don't trigger a state update
+        return
+    }
+    if (syncSeeking) {
+        syncSeeking = false
+        return
+    }
+    if (firstClick) {
+        // check the latest state update, if already playing we should wait for next update
+        firstClick = false
+        return
+    }
     var msg = stateToJsonString()
     send_message(msg)
+    console.log(evt.type)
+    console.log('proposing state change')
+    console.log(msg)
 }
 
 var seekedAndPaused = function(evt){
-    if (latestStateUpdate != null) {
+    if (missedLatestUpdate) {
         // last local state update was interrupted
         updateLocalState(latestStateUpdate)
-        latestStateUpdate = null
+        missedLatestUpdate = false
     }
     else if (evt.detail.plyr.paused) {
         stateChanged(evt)
@@ -461,7 +489,7 @@ function stateToJsonString(){
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,
                 "position":player.currentTime,
-                "speed":player.playbackRate,
+                "speed":player.speed,
                 "duration":player.duration
             }
         };
@@ -484,7 +512,7 @@ function average(data){
 
 function estimate_latency(send_t, serve_t, rec_t) {
     var lat = (rec_t - send_t - serve_t) / 2.0;
-    console.log("current latency = " + lat);
+    // console.log("current latency = " + lat);
     latencies[cur_index] = lat;
     if(bef_index >= 0) {
         if(movings.length > 0)
@@ -500,7 +528,7 @@ function estimate_latency(send_t, serve_t, rec_t) {
     if(bef_index >= lat_winsize) bef_index = 0;
 
     // Estimate Latency
-    if(latencies.length > 10) {
+    // if(latencies.length > 10) {
         var sample_mean = average(latencies);
         var moving_mean = average(movings);
         var alpha = 0.1; // Agile filter = indside
@@ -522,7 +550,7 @@ function estimate_latency(send_t, serve_t, rec_t) {
             console.log("Latency: outside");
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
-        console.log("Estimation: " + estimation);
+        // console.log("Estimation: " + estimation);
         local_rtt = estimation;
-    }
+    // }
 }
