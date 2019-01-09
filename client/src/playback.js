@@ -35,6 +35,7 @@ on('.js-forward', 'click', () => {
     player.forward();
 });
 
+//var ws = new WebSocket("wss://echo.websocket.org");
 
 var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
