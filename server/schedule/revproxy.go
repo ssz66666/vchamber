@@ -3,45 +3,44 @@ package schedule
 import (
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/koding/websocketproxy"
-
-	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
 )
 
 // LoadBalancedReverseProxy is a reverse proxy that serves as an entry point
 // for multiple backend servers
 type LoadBalancedReverseProxy struct {
-	reg   ReadOnlyStorage
-	conns *sync.Map
+	reg ReadOnlyStorage
 }
 
 // NewLoadBalancedReverseProxy creates a new reverse proxy with the specific in-memory
 // database (room registry) source
 func NewLoadBalancedReverseProxy(roomReg ReadOnlyStorage) *LoadBalancedReverseProxy {
-	var m sync.Map
-	return &LoadBalancedReverseProxy{
-		reg:   roomReg,
-		conns: &m,
-	}
+	return &LoadBalancedReverseProxy{reg: roomReg}
 }
 
-func (r *LoadBalancedReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	q := req.URL.Query()
-	rid := q.Get("rid")
-	target := ""
-	if rid != "" {
-		target = r.reg.Get(rid)
+func (r *LoadBalancedReverseProxy) ProxyBackend() func(*http.Request) *url.URL {
+	return func(req *http.Request) *url.URL {
+		q := req.URL.Query()
+		rid := q.Get("rid")
+		target := ""
+		if rid != "" {
+			target = r.reg.Get(rid)
+		}
+		if target == "" {
+			return nil
+		}
+		u := *BackendWSScheme
+		u.Host = target
+		u.Fragment = req.URL.Fragment
+		u.Path = req.URL.Path
+		u.RawQuery = req.URL.RawQuery
+		return &u
 	}
-	if target == "" {
-		http.Error(rw, vserver.ErrInvalidRoomID, http.StatusBadRequest)
-		return
-	}
-	proxy, ok := r.conns.Load(target)
-	if !ok {
-		u, _ := url.Parse(target)
-		proxy, _ = r.conns.LoadOrStore(target, websocketproxy.NewProxy(u))
-	}
-	proxy.(*websocketproxy.WebsocketProxy).ServeHTTP(rw, req)
+
+}
+
+// GetProxy returns a websocket reverse proxy object with registry-backed backend
+func (r *LoadBalancedReverseProxy) GetProxy() *websocketproxy.WebsocketProxy {
+	return &websocketproxy.WebsocketProxy{Backend: r.ProxyBackend()}
 }

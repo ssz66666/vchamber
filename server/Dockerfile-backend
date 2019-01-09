@@ -4,7 +4,7 @@ ADD . /vchamber
 
 WORKDIR /vchamber
 
-RUN go build -mod=vendor -o backend backend.go
+RUN go build -mod=vendor -o backend cmd/backend/backend.go
 
 ENTRYPOINT ["/vchamber/backend"]
 

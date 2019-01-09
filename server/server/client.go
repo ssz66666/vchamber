@@ -9,33 +9,39 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Client is a headless VChamber client, it cannot function as a master
+const (
+	HeartbeatPeriod = 1 * time.Second
+)
+
+// Client is a headless vChamber client, it cannot function as a master
 type Client struct {
-	conn    *websocket.Conn
-	state   *PlaybackState
-	latency time.Duration
-	stop    chan bool
-	stopped chan bool
+	Conn    *websocket.Conn
+	State   *PlaybackState
+	Latency time.Duration
+	Stop    chan bool
+	Stopped chan bool
 }
 
+// ClientHandleRecv is the read loop for vChamber client
 func (c *Client) ClientHandleRecv() {
 	defer func() {
-		c.conn.Close()
+		c.Conn.Close()
 	}()
 	for {
 		select {
 		// not implemented
-		case <-c.stop:
+		case <-c.Stop:
 			return
 		}
 	}
 }
 
+// ClientSendHeartbeat periodically pings the server
 func (c *Client) ClientSendHeartbeat() {
-	var ticker = time.NewTicker(1 * time.Second)
+	var ticker = time.NewTicker(HeartbeatPeriod)
 	defer func() {
-		close(c.stopped)
-		c.conn.Close()
+		close(c.Stopped)
+		c.Conn.Close()
 	}()
 	for {
 		select {
@@ -48,19 +54,21 @@ func (c *Client) ClientSendHeartbeat() {
 			}); err != nil {
 				return
 			}
-		case <-c.stop:
-			c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+		case <-c.Stop:
+			c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 			return
 		}
 	}
 }
 
+// SendMessage is a helper function to send a message from c
 func (c *Client) SendMessage(msg *Message) error {
 	b, _ := msg.Serialise()
-	c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	return c.conn.WriteMessage(websocket.TextMessage, b)
+	c.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	return c.Conn.WriteMessage(websocket.TextMessage, b)
 }
 
+// Connect initiates a new websocket connection to a vChamber server with given params
 func Connect(dialer *websocket.Dialer, addr string, rid string, token string) (*Client, error) {
 	if dialer == nil {
 		dialer = &websocket.Dialer{
@@ -101,10 +109,10 @@ func Connect(dialer *websocket.Dialer, addr string, rid string, token string) (*
 	state.lastUpdated = time.Now()
 
 	return &Client{
-		conn:    conn,
-		state:   &state,
-		latency: time.Duration(0),
-		stop:    make(chan bool),
-		stopped: make(chan bool),
+		Conn:    conn,
+		State:   &state,
+		Latency: time.Duration(0),
+		Stop:    make(chan bool),
+		Stopped: make(chan bool),
 	}, nil
 }
