@@ -139,7 +139,7 @@ ws.onmessage = function(evt) {
                 player.source = src;
                 addPlyrEventHandlers()
             }
-            if(player.media.seeking) {
+            if(player.seeking) {
                 // user is seeking right now, don't annoy the user just yet
                 latestStateUpdate = playback_state
                 break
@@ -234,12 +234,13 @@ var updateLocalState = function(newState){
             var playback_speed = playback_state.speed;
             latestStateUpdate = null
 
-            if((player.media.currentTime - playback_position > 2) || (player.media.currentTime - playback_position < -2)){
+            var tolerance = Math.max((ucl - lcl) / 2, 0.1)
+            if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
                 }
                 removePlyrEventHandlers()
-                player.media.currentTime = playback_position;
+                player.currentTime = playback_position;
                 addPlyrEventHandlers()
             }
             if((playback_status == playback_status_type.stopped) && (!player.stopped) && (!player.ended)){
@@ -263,9 +264,9 @@ var updateLocalState = function(newState){
                 player.pause();
                 addPlyrEventHandlers()
             }
-            if(player.media.playbackRate != playback_speed){
+            if(player.playbackRate != playback_speed){
                 removePlyrEventHandlers()
-                player.media.playbackRate = playback_speed;
+                player.playbackRate = playback_speed;
                 addPlyrEventHandlers()
             }
 }
@@ -345,7 +346,7 @@ function sendStateUpdate(){
 }
 
 function send_message(message){
-    if(master_client == false || player.media.duration == 0){
+    if(master_client == false || player.duration == 0){
         return;
     }
     if(!load_finished && JSON.parse(message).type == msg_type.stateupdate){
@@ -367,7 +368,7 @@ function send_message(message){
     }
     if(ws.readyState == 1){
         ws.send(message)
-        console.log('Send message:' + message)
+        // console.log('Send message:' + message)
     }
 
     // console.log('websocket closed')
@@ -459,9 +460,9 @@ function stateToJsonString(){
             "state": {
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,
-                "position":player.media.currentTime,
-                "speed":player.media.playbackRate,
-                "duration":player.media.duration
+                "position":player.currentTime,
+                "speed":player.playbackRate,
+                "duration":player.duration
             }
         };
     var updateMsg = {
