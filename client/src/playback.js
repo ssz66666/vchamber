@@ -4,6 +4,15 @@ const player = new Plyr('#player');
 
 // Expose
 window.player = player;
+// player.source = {
+//     type: 'video',
+//     sources: [
+//         {
+//             src: 'https://www.youtube.com/watch?v=rKcWT1LIH3M',
+//             provider: 'youtube',
+//         },
+//     ],
+// }
 
 // Bind event listener
 function on(selector, type, callback) {
@@ -37,7 +46,7 @@ on('.js-forward', 'click', () => {
 
 //var ws = new WebSocket("wss://echo.websocket.org");
 
-var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 //var local_src = '';
 var master_client = true;
@@ -80,6 +89,7 @@ var movings = new Array();
 
 var clientStatus = ''
 var latestStateUpdate = null
+var pingTicker
 
 ws.onopen = function(evt) {
     console.log("Connection open ...")
@@ -87,6 +97,7 @@ ws.onopen = function(evt) {
     //send ping message first
     send_ping()
     addPlyrEventHandlers()
+    pingTicker = setInterval(send_ping, PING_INTERVAL)
 };
 
 ws.onmessage = function(evt) {
@@ -108,7 +119,7 @@ ws.onmessage = function(evt) {
 
             estimate_latency(send_time, serv_time, rec_time);
 
-            setTimeout(send_ping, PING_INTERVAL);
+            // setTimeout(send_ping, PING_INTERVAL);
             break;
         //get STATE
         case 3:
@@ -209,6 +220,7 @@ ws.onmessage = function(evt) {
 ws.onclose = function(evt) {
     console.log("Connection closed.");
     removePlyrEventHandlers()
+    clearInterval(pingTicker)
     //close alert
 };
 
@@ -376,6 +388,8 @@ function send_ping() {
     var send_time = new Date() / 1000;
     var payload = '{"sendtime":' + send_time + '}';
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
+    send_message(send_data)
+
 }
 
 // function stateUpdate(){
@@ -449,6 +463,15 @@ function stateToJsonString(){
     }
     // console.log("JSON"+player.media.currentTime);
     return JSON.stringify(updateMsg);
+}
+
+function average(data){
+    var sum = data.reduce(function(sum, value){
+        return sum + value;
+    }, 0);
+
+    var avg = sum / data.length;
+    return avg;
 }
 
 function estimate_latency(send_t, serve_t, rec_t) {
