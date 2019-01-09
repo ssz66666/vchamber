@@ -223,7 +223,7 @@ func (r *Room) RunManager() {
 
 	shutdownTimer := time.NewTimer(defaultMasterlessTimeout)
 	updateTicker := time.NewTicker(broadcastPeriod)
-	var stateUpdateQueue []*Message
+	var bufferedUpdate *Message
 	updateCooldownTimer := time.NewTimer(updateCooldown)
 	defer func() {
 		updateTicker.Stop()
@@ -237,12 +237,12 @@ func (r *Room) RunManager() {
 	for {
 		select {
 		case <-updateCooldownTimer.C:
-			if len(stateUpdateQueue) > 0 {
-				m := stateUpdateQueue[len(stateUpdateQueue)-1]
+			if bufferedUpdate != nil {
+				m := bufferedUpdate
 				r.UpdateState(m.Payload.(*PlaybackStateUpdateMessage), time.Since(m.ReceivedAt))
 				r.BroadcastState()
 			}
-			stateUpdateQueue = nil
+			bufferedUpdate = nil
 		case m := <-r.recvQueue:
 			switch m.Type {
 			case MessageTypeStateUpdate:
@@ -255,14 +255,14 @@ func (r *Room) RunManager() {
 					r.BroadcastState()
 				} else {
 					// push the update to stateUpdateQueue
-					if len(stateUpdateQueue) == 0 {
+					if bufferedUpdate == nil {
 						//start the timer
 						if updateCooldownTimer.Stop() {
 							<-updateCooldownTimer.C
 						}
 						updateCooldownTimer.Reset(9 * updateCooldown / 10)
 					}
-					stateUpdateQueue = append(stateUpdateQueue, m)
+					bufferedUpdate = m
 					log.Printf("buffered state update from %s, proposed new state %v", m.Sender, p.State)
 				}
 			}
