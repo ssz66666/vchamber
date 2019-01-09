@@ -146,13 +146,16 @@ func (r *Room) checkPosition() {
 	}
 }
 
-func (r *Room) UpdateState(p *PlaybackStateUpdateMessage) {
+func (r *Room) UpdateState(p *PlaybackStateUpdateMessage, d time.Duration) {
 	r.state.source = p.State.Source
 	r.state.status = p.State.Status
 	r.state.speed = p.State.Speed
 	r.state.duration = p.State.Duration
 
-	newPos := p.State.Position + (p.RTT/2.0)*p.State.Speed
+	newPos := p.State.Position
+	if r.state.status == PlaybackStatusPlaying {
+		newPos += (p.RTT/2.0 + d.Seconds()) * p.State.Speed
+	}
 	r.state.position = newPos
 	r.state.lastUpdated = time.Now()
 }
@@ -220,9 +223,12 @@ func (r *Room) RunManager() {
 
 	shutdownTimer := time.NewTimer(defaultMasterlessTimeout)
 	updateTicker := time.NewTicker(broadcastPeriod)
+	var stateUpdateQueue []*Message
+	updateCooldownTimer := time.NewTimer(updateCooldown)
 	defer func() {
 		updateTicker.Stop()
 		shutdownTimer.Stop()
+		updateCooldownTimer.Stop()
 		for _, c := range r.clients {
 			r.RemoveClient(c)
 		}
@@ -230,18 +236,35 @@ func (r *Room) RunManager() {
 	}()
 	for {
 		select {
+		case <-updateCooldownTimer.C:
+			if len(stateUpdateQueue) > 0 {
+				m := stateUpdateQueue[len(stateUpdateQueue)-1]
+				r.UpdateState(m.Payload.(*PlaybackStateUpdateMessage), time.Since(m.ReceivedAt))
+				r.BroadcastState()
+			}
+			stateUpdateQueue = nil
 		case m := <-r.recvQueue:
 			switch m.Type {
 			case MessageTypeStateUpdate:
 				// TODO: we need to somehow handle conflicting state updates
 				// TODO: when we have duration we can then make the video stop as it ends
 				p := m.Payload.(*PlaybackStateUpdateMessage)
-				if time.Since(m.ReceivedAt) > updateCooldown {
-					log.Printf("received state update from %s, new state %v", m.Sender, p.State)
-					r.UpdateState(p)
+				if time.Since(r.state.lastUpdated) > updateCooldown {
+					// log.Printf("received state update from %s, new state %v", m.Sender, p.State)
+					r.UpdateState(p, time.Since(m.ReceivedAt))
 					r.BroadcastState()
+				} else {
+					// push the update to stateUpdateQueue
+					if len(stateUpdateQueue) == 0 {
+						//start the timer
+						if updateCooldownTimer.Stop() {
+							<-updateCooldownTimer.C
+						}
+						updateCooldownTimer.Reset(9 * updateCooldown / 10)
+					}
+					stateUpdateQueue = append(stateUpdateQueue, m)
+					log.Printf("buffered state update from %s, proposed new state %v", m.Sender, p.State)
 				}
-				log.Printf("ignored state update from %s, proposed new state %v", m.Sender, p.State)
 			}
 
 		case c := <-r.enqClient:
