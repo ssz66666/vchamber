@@ -295,7 +295,9 @@ var stateChanged = function(evt){
     if (firstClick) {
         // check the latest state update, if already playing we should wait for next update
         firstClick = false
-        return
+        if (latestStateUpdate.status == playback_status_type.playing) {
+            return
+        }
     }
     var msg = stateToJsonString()
     send_message(msg)
