@@ -2,7 +2,8 @@
  * Created by luweijia on 2018/12/21.
  */
 
-var ws = new WebSocket("wss://echo.websocket.org");
+//var ws = new WebSocket("wss://echo.websocket.org");
+var ws = new WebSocket("ws://localhost:8083/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 var local_status = 0;
 var local_position = 0.0;
@@ -58,13 +59,13 @@ ws.onmessage = function(evt) {
             break;
         //get PONG
         case 2:
-            var time_info = JSON.parse(rec.payload);
+            var time_info = rec.payload;
             var send_time = time_info.sendtime;
             var serv_time = time_info.servicetime;
 
             estimate_latency(send_time, serv_time, rec_time);
 
-            setTimeout(send_ping(), 1000);
+            send_ping();
             break;
         //get STATE
         case 3:
@@ -126,13 +127,13 @@ function send_message(message){
 function close_ws(){
     // write_document('input','CLOSE')
     // console.log(ws.readyState)
-    if(ws.readyState == 0){
+    if(ws.readyState == WebSocket.CONNECTING){
         console.log("WS has not been established yet")
     }
-    else if(ws.readyState == 2){
+    else if(ws.readyState == WebSocket.CLOSING){
         console.log("WS is closing")
     }
-    else if(ws.readyState == 3){
+    else if(ws.readyState == WebSocket.CLOSED){
         console.log("WS has already been closed")
     }
     else{ //readyState == 1 which means OPEN
@@ -145,11 +146,23 @@ function send_ping() {
     var send_time = new Date() / 1000;
     var payload = '{"sendtime":' + send_time + '}';
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
+    setTimeout(function() {ws.send(send_data);}, 1000);
+}
+
+function average(data){
+    var sum = data.reduce(function(sum, value){
+        return sum + value;
+    }, 0);
+
+    var avg = sum / data.length;
+    return avg;
 }
 
 function estimate_latency(send_t, serve_t, rec_t) {
+    serve_t = Number((serve_t).toFixed(3));
     var lat = (rec_t - send_t - serve_t) / 2.0;
-    console.log("current latency = " + lat);
+    // console.log("current latency = " + lat);
+
     latencies[cur_index] = lat;
     if(bef_index >= 0) {
         if(movings.length > 0)
@@ -160,7 +173,7 @@ function estimate_latency(send_t, serve_t, rec_t) {
     }
     cur_index++;
     if(cur_index >= lat_winsize) cur_index = 0;
-    // lat_index = lat_winsize % (lat_index + 1); // why error??
+
     bef_index++;
     if(bef_index >= lat_winsize) bef_index = 0;
 
@@ -184,10 +197,18 @@ function estimate_latency(send_t, serve_t, rec_t) {
             // Update ucl and lcl for outside case
             ucl = sample_mean + 3 * moving_mean / 1.128;
             lcl = sample_mean - 3 * moving_mean / 1.128;
-            console.log("Latency: outside");
+            // console.log("Latency: outside");
         }
         estimation = alpha * estimation + (1 - alpha) * lat;
-        console.log("Estimation: " + estimation);
-        local_rtt = estimation;
+        // console.log("Estimation: " + estimation);
     }
+}
+
+function create_room() {
+    console.log("Send room");
+    $.get("http://localhost:8083/ws?rid=testroom&token=iamgod", function(data, status){
+        console.log("Data: " + data + "\nStatus: " + status);
+    });
+
+    // location.href="notice/List.jsp";
 }
