@@ -94,7 +94,7 @@ var latestStateUpdate
 var missedLatestUpdate = false
 var pingTicker
 var syncSeeking = false
-var firstClick = true
+var firstClick = false
 
 ws.onopen = function(evt) {
     console.log("Connection open ...")
@@ -267,6 +267,7 @@ var updateLocalState = function(newState){
                 },
                 (e)=> {
                     // autoplay got rejected
+                    firstClick = true
                     addPlyrEventHandlers()
                 })
             }
