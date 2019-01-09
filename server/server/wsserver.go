@@ -51,6 +51,7 @@ type Room struct {
 	recvQueue chan *Message // deserialise early in parallel in separate goroutines
 	enqClient chan *ClientConn
 	deqClient chan *ClientConn
+	closing   chan bool
 	masterKey string
 	guestKey  string
 	state     *PlaybackState
@@ -105,30 +106,39 @@ func (s *Server) RemoveRoom(r *Room) {
 	s.deqRoom <- r
 }
 
+func (s *Server) joinRoom(r *Room) {
+	if nil != r {
+		s.mutex.Lock()
+		s.rooms[r.ID] = r
+		s.mutex.Unlock()
+		go r.RunManager()
+		log.Printf("room %s registered", r.ID)
+	}
+}
+
+func (s *Server) killRoom(r *Room) {
+	if nil != r {
+		s.mutex.Lock()
+		if _r, ok := s.rooms[r.ID]; ok && _r == r {
+			delete(s.rooms, r.ID)
+			close(r.closing)
+			close(r.recvQueue)
+			close(r.enqClient)
+			close(r.deqClient)
+		}
+		s.mutex.Unlock()
+		log.Printf("room %s deregistered", r.ID)
+	}
+}
+
 // Run manages server s
 func (s *Server) Run() {
 	for {
 		select {
 		case r := <-s.enqRoom:
-			if nil != r {
-				s.mutex.Lock()
-				s.rooms[r.ID] = r
-				s.mutex.Unlock()
-				go r.RunManager()
-				log.Printf("room %s registered", r.ID)
-			}
+			s.joinRoom(r)
 		case r := <-s.deqRoom:
-			if nil != r {
-				s.mutex.Lock()
-				if _r, ok := s.rooms[r.ID]; ok && _r == r {
-					delete(s.rooms, r.ID)
-					close(r.recvQueue)
-					close(r.enqClient)
-					close(r.deqClient)
-				}
-				s.mutex.Unlock()
-				log.Printf("room %s deregistered", r.ID)
-			}
+			s.killRoom(r)
 		}
 	}
 }
@@ -194,7 +204,7 @@ func (r *Room) SendState(cid string) {
 	}
 }
 
-func (r *Room) AddClient(c *ClientConn) {
+func (r *Room) joinClient(c *ClientConn) {
 	if nil != c {
 		r.clients[c.ID] = c
 		if c.state == clientStateMaster {
@@ -203,16 +213,15 @@ func (r *Room) AddClient(c *ClientConn) {
 	}
 }
 
-// RemoveClient removes a client from room r, NOT thread-safe
-func (r *Room) RemoveClient(c *ClientConn) {
+// killClient removes a client from room r, NOT thread-safe
+func (r *Room) killClient(c *ClientConn) {
 	if nil != c {
 		if _c, ok := r.clients[c.ID]; ok && (_c == c) {
 			log.Println("removing client", c.conn.RemoteAddr(), "cid:", c.ID)
 			delete(r.clients, c.ID)
 			delete(r.masters, c.ID)
-			close(c.sendQueue)
-			close(c.recvQueue)
 			close(c.closing)
+			close(c.sendQueue)
 		}
 	}
 }
@@ -229,7 +238,7 @@ func (r *Room) RunManager() {
 		shutdownTimer.Stop()
 		updateCooldownTimer.Stop()
 		for _, c := range r.clients {
-			r.RemoveClient(c)
+			r.killClient(c)
 		}
 		r.server.deqRoom <- r
 	}()
@@ -267,7 +276,7 @@ func (r *Room) RunManager() {
 			}
 
 		case c := <-r.enqClient:
-			r.AddClient(c)
+			r.joinClient(c)
 			r.SendState(c.ID)
 			if c.state == clientStateMaster && len(r.masters) == 1 {
 				if !shutdownTimer.Stop() {
@@ -275,7 +284,7 @@ func (r *Room) RunManager() {
 				}
 			}
 		case c := <-r.deqClient:
-			r.RemoveClient(c)
+			r.killClient(c)
 			if c.state == clientStateMaster && len(r.masters) == 0 {
 				if !shutdownTimer.Stop() {
 					<-shutdownTimer.C
@@ -300,6 +309,7 @@ func NewRoom(id string, server *Server, mKey string, gKey string) *Room {
 		recvQueue: make(chan *Message, roomMessageQueueSize),
 		enqClient: make(chan *ClientConn),
 		deqClient: make(chan *ClientConn),
+		closing:   make(chan bool),
 		masterKey: mKey,
 		guestKey:  gKey,
 		state: &PlaybackState{
@@ -352,27 +362,33 @@ func NewClientConn(id string, room *Room, conn *websocket.Conn, state clientStat
 // the goroutine that runs this function reads from c.conn
 func (c *ClientConn) handleWSClientRecv() {
 	defer func() {
-		c.closing <- true
+		close(c.recvQueue)
+		c.room.deqClient <- c
 	}()
 	// uncomment to remove client after irresponsive for heartbeatTimeOut
 	// c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
 	for {
-		_, m, err := c.conn.ReadMessage()
-		if nil != err {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Error unexpected closure: %v", err)
-			}
+		select {
+		case <-c.closing:
 			return
+		default:
+			_, m, err := c.conn.ReadMessage()
+			if nil != err {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("Error unexpected closure: %v", err)
+				}
+				return
+			}
+			// uncomment to remove client after irresponsive for heartbeatTimeOut
+			// c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
+			var msg Message
+			err = Deserialise(m, &msg)
+			if nil != err {
+				log.Println("Invalid message:", string(m))
+				continue
+			}
+			c.recvQueue <- &msg
 		}
-		// uncomment to remove client after irresponsive for heartbeatTimeOut
-		// c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
-		var msg Message
-		err = Deserialise(m, &msg)
-		if nil != err {
-			log.Println("Invalid message:", string(m))
-			continue
-		}
-		c.recvQueue <- &msg
 	}
 }
 
@@ -380,6 +396,7 @@ func (c *ClientConn) handleWSClientRecv() {
 func (c *ClientConn) handleWSClientSend() {
 	defer func() {
 		c.conn.Close()
+		c.room.deqClient <- c
 	}()
 	for {
 		select {
@@ -400,6 +417,8 @@ func (c *ClientConn) handleWSClientSend() {
 			if err != nil {
 				return
 			}
+		case <-c.closing:
+			return
 		}
 	}
 }
@@ -411,7 +430,10 @@ func (c *ClientConn) handleVChamberClient() {
 	}()
 	for {
 		select {
-		case m := <-c.recvQueue:
+		case m, ok := <-c.recvQueue:
+			if !ok {
+				return
+			}
 
 			// TODO: handle client specific part of the protocol
 			// e.g. authentication
