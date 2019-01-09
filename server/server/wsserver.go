@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -164,7 +165,7 @@ func (r *Room) UpdateState(p *PlaybackStateUpdateMessage, d time.Duration) {
 
 	newPos := p.State.Position
 	if r.state.status == PlaybackStatusPlaying {
-		newPos += (p.RTT/2.0 + d.Seconds()) * p.State.Speed
+		newPos += (math.Max(p.RTT/2.0, 0.0) + d.Seconds()) * p.State.Speed
 	}
 	r.state.position = newPos
 	r.state.lastUpdated = time.Now()
