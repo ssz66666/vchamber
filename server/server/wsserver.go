@@ -38,10 +38,12 @@ const (
 
 // Server encapsulates server-level global data
 type Server struct {
-	rooms   map[string]*Room // a map of rooms
-	enqRoom chan *Room
-	deqRoom chan *Room
-	mutex   sync.RWMutex // guard rooms for look up
+	rooms        map[string]*Room // a map of rooms
+	enqRoom      chan *Room
+	deqRoom      chan *Room
+	closing      chan bool
+	closingGuard sync.Once
+	mutex        sync.RWMutex // guard rooms for look up
 }
 
 // Room encapsulates room-level global data and manages users in a room
@@ -78,15 +80,20 @@ type ClientConn struct {
 	room      *Room
 }
 
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  wsReadBufferSize,
-	WriteBufferSize: wsWriteBufferSize,
-	Subprotocols: []string{
-		WebsocketSubprotocolMagicV1,
-	},
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	}, //disable origin check
+var wsUpgrader = GetWSUpgrader()
+
+// GetWSUpgrader return the websocket upgrader for use with vchamber
+func GetWSUpgrader() *websocket.Upgrader {
+	return &websocket.Upgrader{
+		ReadBufferSize:  wsReadBufferSize,
+		WriteBufferSize: wsWriteBufferSize,
+		Subprotocols: []string{
+			WebsocketSubprotocolMagicV1,
+		},
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		}, //disable origin check
+	}
 }
 
 // NewServer creates a new server struct
@@ -95,6 +102,8 @@ func NewServer() *Server {
 		make(map[string]*Room),
 		make(chan *Room),
 		make(chan *Room),
+		make(chan bool),
+		sync.Once{},
 		sync.RWMutex{},
 	}
 }
@@ -109,9 +118,7 @@ func (s *Server) RemoveRoom(r *Room) {
 
 func (s *Server) joinRoom(r *Room) {
 	if nil != r {
-		s.mutex.Lock()
 		s.rooms[r.ID] = r
-		s.mutex.Unlock()
 		go r.RunManager()
 		log.Printf("room %s registered", r.ID)
 	}
@@ -119,7 +126,6 @@ func (s *Server) joinRoom(r *Room) {
 
 func (s *Server) killRoom(r *Room) {
 	if nil != r {
-		s.mutex.Lock()
 		if _r, ok := s.rooms[r.ID]; ok && _r == r {
 			delete(s.rooms, r.ID)
 			close(r.closing)
@@ -127,19 +133,32 @@ func (s *Server) killRoom(r *Room) {
 			close(r.enqClient)
 			close(r.deqClient)
 		}
-		s.mutex.Unlock()
 		log.Printf("room %s deregistered", r.ID)
 	}
 }
 
 // Run manages server s
 func (s *Server) Run() {
+	defer func() {
+		s.mutex.Lock()
+		// kill all rooms
+		for _, r := range s.rooms {
+			s.killRoom(r)
+		}
+		s.mutex.Unlock()
+	}()
 	for {
 		select {
 		case r := <-s.enqRoom:
+			s.mutex.Lock()
 			s.joinRoom(r)
+			s.mutex.Unlock()
 		case r := <-s.deqRoom:
+			s.mutex.Lock()
 			s.killRoom(r)
+			s.mutex.Unlock()
+		case <-s.closing:
+			return
 		}
 	}
 }
@@ -539,13 +558,9 @@ func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s client %s from %s joined room %s", cType, cid, conn.RemoteAddr(), roomid)
 }
 
-// NewVChamberWSMux makes the websocket servemux of server
-func NewVChamberWSMux(server *Server) http.Handler {
-	wsMux := http.NewServeMux()
-
-	wsMux.HandleFunc("/", http.NotFound)
-	wsMux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+// GetVChamberWSHandleFunc returns a handle function for the server
+func GetVChamberWSHandleFunc(server *Server) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		handleWSClient(server, w, r)
-	})
-	return wsMux
+	}
 }

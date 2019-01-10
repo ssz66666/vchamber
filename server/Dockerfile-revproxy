@@ -1,0 +1,11 @@
+FROM golang:1.11.4-stretch
+
+ADD . /vchamber
+
+WORKDIR /vchamber
+
+RUN go build -mod=vendor -o revproxy cmd/revproxy/revproxy.go
+
+ENTRYPOINT ["/vchamber/revproxy"]
+
+EXPOSE 8080
