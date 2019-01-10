@@ -1,8 +1,9 @@
 // Handle join a room
 var params = window.location.search;
 if(params[0] == "?") {
+    console.log(params);
     localStorage.setItem("join", params);
-    window.location.href="test.html";
+    window.location.href="room.html";
 }
 
 const api_url = "http://localhost:8081/";
@@ -25,5 +26,5 @@ function get_data(rec) {
     localStorage.setItem("rid",rec.roomID);
     localStorage.setItem("m_token",rec.masterToken);
     localStorage.setItem("g_token",rec.guestToken);
-    window.location.href="test.html";
+    window.location.href="room.html";
 }

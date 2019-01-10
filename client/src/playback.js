@@ -44,10 +44,35 @@ on('.js-forward', 'click', () => {
     player.forward();
 });
 
-//var ws = new WebSocket("wss://echo.websocket.org");
+// Websocket Connection Logic
+var rid = localStorage.getItem("rid");
+var m_token = localStorage.getItem("m_token");
+var g_token = localStorage.getItem("g_token");
+localStorage.removeItem("rid");
+localStorage.removeItem("m_token");
+localStorage.removeItem("g_token");
 
-//var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
-var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var host = "localhost";
+var ws_port = "8080";
+var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
+
+// For masters
+if(m_token != null) {
+    var room_url = "http://" + host + ":80" + "/?rid=" + rid;
+    var m_url = room_url + "&token=" + m_token;
+    var g_url = room_url + "&token=" + g_token;
+    document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
+}
+
+// For a guest
+var join = localStorage.getItem("join");
+localStorage.removeItem("join");
+
+if(join != null) {
+    ws_addr = "ws://" + host + ":" + ws_port + "/ws" + join;
+}
+
+var ws = new WebSocket(ws_addr, "vchamber_v1");
 
 //var local_src = '';
 var master_client = true;
@@ -487,7 +512,7 @@ function stateToJsonString(){
     var payload =
         {
             // TODO: Ask hyun what local_rtt is? is it the RTT(round-trip-time) or the latency?
-            "rtt": local_lat * 2.0, 
+            "rtt": local_lat * 2.0,
             "state": {
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,
