@@ -21,7 +21,7 @@
     <video controls playsinline
            id="player">
         <!-- Video files -->
-        <source src="t.mp4" type="video/mp4" size="576">
+        <source src="" type="youtube" size="576">
 
 
 
@@ -43,7 +43,16 @@
         <button onclick="receiveTest()">
             Receive test
         </button>
+        <br><br>
+        <form>
+            <!--MP4 URL<input type="text" value='' id="mp4_link">-->
+            <br>
+            YOUTUBE URL <input type="text" value='' id="youtube_link">
+            <input type="button" value="submit" onclick="newUrl()">
+        </form>
     </div>
+    <p id="tokens">
+    </p>
 </div>
 <script src="https://cdn.plyr.io/3.4.6/plyr.js"></script>
 <script>

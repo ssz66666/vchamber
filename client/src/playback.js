@@ -44,13 +44,52 @@ on('.js-forward', 'click', () => {
     player.forward();
 });
 
+// Websocket Connection Logic
+var rid = localStorage.getItem("rid");
+var m_token = localStorage.getItem("m_token");
+var g_token = localStorage.getItem("g_token");
+localStorage.removeItem("rid");
+localStorage.removeItem("m_token");
+localStorage.removeItem("g_token");
+
+var host = "localhost";
+var ws_port = "8080";
+var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
+
+// For masters
+if(m_token != null) {
+    var room_url = "http://" + host + ":63342" + "/?rid=" + rid;
+    var m_url = room_url + "&token=" + m_token;
+    var g_url = room_url + "&token=" + g_token;
+    document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
+}
+
+// For a guest
+var join = localStorage.getItem("join");
+localStorage.removeItem("join");
+
+if(join != null) {
+    ws_addr = "ws://" + host + ":" + ws_port + "/ws" + join;
+}
+
+var ws = new WebSocket(ws_addr, "vchamber_v1");
 //var ws = new WebSocket("wss://echo.websocket.org");
 
 //var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
-var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+// var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+
+//SET DEFAULT VIDEO
+player.source = {
+    type: 'video',
+    sources: [{
+        src: 'https://www.youtube.com/watch?v=AF1E_DxHQ_A',
+        provider: 'youtube'
+    }]
+};
+src_youtube = true;
 
 //var local_src = '';
-var master_client = true;
+var master_client = false;
 var load_finished = false;
 var src_change = false;
 var status_change = false;
@@ -59,6 +98,7 @@ var rate_change = false;
 // var local_position = 0.0;
 // var local_speed = 1.0;
 var local_lat = 0.0;
+var src_youtube = false;
 
 var playback_status_type = {
     stopped: 0,
@@ -114,6 +154,15 @@ ws.onmessage = function(evt) {
         //get HELLO
         case 0:
             clientStatus = rec.payload.authority
+            if(clientStatus == 'master'){
+                //master client
+                master_client = true;
+            }
+            else{
+                //guest client(no control authority)
+                console.log(master_client)
+                master_client = false;
+            }
             break;
         //get PONG
         case 2:
@@ -159,72 +208,6 @@ ws.onmessage = function(evt) {
     }
 };
 
-// function receiveTest(){
-//     var type = 3;
-//     var rece = '{"status":"2", "position":100, "speed":2.0, "src":"t.mp4"}'
-//     //var rece = '{"type": "3", "payload": "[{"status": "2", "position": "100", "speed":"2.0", "src":"t.mp4"}]"}'
-//     var rec_time = new Date() / 1000;
-//     var rec = rece;//JSON.parse(rece);
-//     //console.log("receive json: " + rec.type + rec.payload);
-// //logic part
-//     switch(type) {
-//         //get HELLO
-//         case 0:
-//
-//             break;
-//         //get PONG
-//         case 2:
-//             var time_info = JSON.parse(rec);
-//             var send_time = time_info.sendtime;
-//             var serv_time = time_info.servicetime;
-//
-//             estimate_latency(send_time, serv_time, rec_time);
-//
-//             setTimeout(send_ping(), 1000);
-//             break;
-//         //get STATE
-//         case 3:
-//             var playback_state = JSON.parse(rec);
-//             console.log("STATE:"+playback_state);
-//             var src = playback_state.src;//url?use?
-//             var playback_status = playback_state.status;
-//             var playback_position = playback_state.position + local_rtt;
-//             var playback_speed = playback_state.speed;
-//             if(local_src!=src){
-//                 local_src = src;
-//                 src_change = true;
-//             }
-//             else{
-//                 src_change = false;
-//             }
-//             if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
-//                 local_position = playback_position;
-//             }
-//             if(local_status != playback_status){
-//                 local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
-//                 status_change = true;
-//             }
-//             else{
-//                 status_change = false;
-//             }
-//             if(local_speed != playback_speed){
-//                 local_speed = playback_speed;
-//                 rate_change = true;
-//             }
-//             else{
-//                 rate_change = false;
-//             }
-//             stateUpdate();
-//             break;
-//         //get STATEUPDATE
-//         case 4:
-//             console.error("On message should not receive STATEUPDATE")
-//             //not the case, should be send message
-//             break;
-//         default:
-//             break;
-//     }
-// }
 
 ws.onclose = function(evt) {
     console.log("Connection closed.");
@@ -429,6 +412,40 @@ function send_ping() {
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
     send_message(send_data)
 
+}
+
+function newUrl(){
+    if(master_client == false){
+        return;
+    }
+    var youtube_url = document.getElementById("youtube_link").value;
+    var mp4_url = document.getElementById("mp4_link").value;
+//SOME BUG OF MP4 VERSION
+    // if(mp4_url != ''){
+    //     console.log("MP4")
+    //     player.source = {
+    //         type: 'video',
+    //         sources: [{
+    //             src: mp4_url,
+    //             tpye:'video/mp4',
+    //             size: 576,
+    //         }]
+    //     };
+    //     console.log("MP4")
+    //     src_youtube = false;
+    // }
+    if(youtube_url != ''){
+        console.log("YOUTUBE")
+        player.source = {
+            type: 'video',
+            sources: [{
+                src: youtube_url,
+                provider: 'youtube'
+            }]
+        };
+        src_youtube = true;
+    }
+    console.log(player.source)
 }
 
 // function stateUpdate(){
