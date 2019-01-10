@@ -2,8 +2,31 @@
  * Created by luweijia on 2018/12/21.
  */
 
-//var ws = new WebSocket("wss://echo.websocket.org");
-var ws = new WebSocket("ws://localhost:8083/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var rid = localStorage.getItem("rid");
+var m_token = localStorage.getItem("m_token");
+var g_token = localStorage.getItem("g_token");
+
+var url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + m_token;
+
+// For a guest
+var join = localStorage.getItem("join");
+if(join[0] == "?") {
+    url = "ws://localhost:8080/ws" + join;
+}
+
+var ws = new WebSocket(url, "vchamber_v1");
+
+var local_status = 0;
+var local_position = 0.0;
+var local_speed = 1.0;
+var local_rtt = 0.0;
+
+var playback_status_type = {
+    stopped: 0,
+    playing: 1,
+    paused: 2,
+    error: 3
+};
 
 var msg_type = {
     hello: 0,
@@ -55,6 +78,24 @@ ws.onmessage = function(evt) {
 
             send_ping();
             break;
+        //get STATE
+        case 3:
+            var playback_state = JSON.parse(rec.payload);
+            var src = playback_state.src;//url?use?
+            var playback_status = playback_state.status;
+            var playback_position = playback_state.position + local_rtt;
+            var playback_speed = playback_state.speed;
+            if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
+                local_position = playback_position;
+            }
+            local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
+            local_speed = playback_speed;
+            break;
+        //get STATEUPDATE
+        case 4:
+            console.error("On message should not receive STATEUPDATE")
+            //not the case, should be send message
+            break;
         default:
             break;
     }
@@ -67,6 +108,10 @@ ws.onclose = function(evt) {
 
 function write_document(id, text) {
     document.getElementById(id).innerHTML = text;
+}
+
+function sendStateUpdate(){
+    //should be used together with webpage
 }
 
 function send_message(message){
@@ -168,13 +213,4 @@ function estimate_latency(send_t, serve_t, rec_t) {
         estimation = alpha * estimation + (1 - alpha) * lat;
         // console.log("Estimation: " + estimation);
     }
-}
-
-function create_room() {
-    console.log("Send room");
-    $.get("http://localhost:8083/ws?rid=testroom&token=iamgod", function(data, status){
-        console.log("Data: " + data + "\nStatus: " + status);
-    });
-
-    // location.href="notice/List.jsp";
 }
