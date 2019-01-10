@@ -150,7 +150,7 @@ func (r *Room) checkPosition() {
 	if st.status == PlaybackStatusPlaying {
 		newPos += time.Since(st.lastUpdated).Seconds() * st.speed
 	}
-	if newPos >= st.duration {
+	if newPos > st.duration {
 		st.position = st.duration
 		st.status = PlaybackStatusStopped
 		st.lastUpdated = time.Now()
