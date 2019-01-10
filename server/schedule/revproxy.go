@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/url"
 
+	vsv "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
+
 	"github.com/koding/websocketproxy"
 )
 
@@ -25,7 +27,7 @@ func (r *LoadBalancedReverseProxy) ProxyBackend() func(*http.Request) *url.URL {
 		rid := q.Get("rid")
 		target := ""
 		if rid != "" {
-			target = r.reg.Get(rid)
+			target, _ = r.reg.Get(rid)
 		}
 		if target == "" {
 			return nil
@@ -42,5 +44,8 @@ func (r *LoadBalancedReverseProxy) ProxyBackend() func(*http.Request) *url.URL {
 
 // GetProxy returns a websocket reverse proxy object with registry-backed backend
 func (r *LoadBalancedReverseProxy) GetProxy() *websocketproxy.WebsocketProxy {
-	return &websocketproxy.WebsocketProxy{Backend: r.ProxyBackend()}
+	return &websocketproxy.WebsocketProxy{
+		Backend:  r.ProxyBackend(),
+		Upgrader: vsv.GetWSUpgrader(),
+	}
 }

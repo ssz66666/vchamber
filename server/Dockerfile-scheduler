@@ -1,0 +1,11 @@
+FROM golang:1.11.4-stretch
+
+ADD . /vchamber
+
+WORKDIR /vchamber
+
+RUN go build -mod=vendor -o scheduler cmd/scheduler/scheduler.go
+
+ENTRYPOINT ["/vchamber/scheduler"]
+
+EXPOSE 8080
