@@ -2,8 +2,19 @@
  * Created by luweijia on 2018/12/21.
  */
 
-//var ws = new WebSocket("wss://echo.websocket.org");
-var ws = new WebSocket("ws://localhost:8083/ws?rid=testroom&token=iamgod", "vchamber_v1");
+var rid = localStorage.getItem("rid");
+var m_token = localStorage.getItem("m_token");
+var g_token = localStorage.getItem("g_token");
+
+var url = "ws://localhost:8080/ws?rid=" + rid + "&token=" + m_token;
+
+// For a guest
+var join = localStorage.getItem("join");
+if(join[0] == "?") {
+    url = "ws://localhost:8080/ws" + join;
+}
+
+var ws = new WebSocket(url, "vchamber_v1");
 
 var local_status = 0;
 var local_position = 0.0;
@@ -202,13 +213,4 @@ function estimate_latency(send_t, serve_t, rec_t) {
         estimation = alpha * estimation + (1 - alpha) * lat;
         // console.log("Estimation: " + estimation);
     }
-}
-
-function create_room() {
-    console.log("Send room");
-    $.get("http://localhost:8083/ws?rid=testroom&token=iamgod", function(data, status){
-        console.log("Data: " + data + "\nStatus: " + status);
-    });
-
-    // location.href="notice/List.jsp";
 }

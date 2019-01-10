@@ -46,7 +46,7 @@
     <header class="bg-primary text-white">
       <div class="container text-center">
         <h1>Welcome to Vchamber</h1>
-        <p class="lead">Enjoy your video with friends.</p>
+        <p class="lead">Enjoy your synchronised video with your friends.</p>
       </div>
     </header>
 
@@ -55,13 +55,15 @@
         <div class="row">
           <div class="col-lg-8 mx-auto">
             <h2>What is Vchamber?</h2>
-            <p class="lead">The Sync</p>
-            <p class="lead">Services we offer
+            <p class="lead"><b>Vchamber</b> which provides synchronised video
+                            watching experience, gives you a chance to watch the same
+                            video with your best friends in the same rhythm even when
+                            you are far away from each other.</p>
+            <p class="lead">Services we offer from Vchamber version 1
             <ul>
-              <li>~~~</li>
-              <li>~~~</li>
-              <li>~~~</li>
-              <li>~~~</li>
+              <li>Private Room</li>
+              <li>Synchronised Video</li>
+              <li>Multiple Users in a room</li>
             </ul>
           </div>
         </div>
@@ -73,13 +75,14 @@
         <div class="row">
           <div class="col-lg-8 mx-auto">
             <h2>Create Room</h2>
-            <p class="lead">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Aut optio velit inventore, expedita quo laboriosam possimus ea consequatur vitae, doloribus consequuntur ex. Nemo assumenda laborum vel, labore ut velit dignissimos.</p>
+            <p class="lead">Just click the 'create' button to get your private room.
+                            And then, invite your friends with url you have.<br>
+                            That's all you need to do!</p>
             <div class="container text-center">
-              Room Name<br>
-              <input type="text" name="roomname"><br>
-              Password<br>
-              <input type="password" name="password"><br><br>
-              <input type="button" onclick="create_room()" value="Create">
+              <button class="button" style="vertical-align:middle" onclick="create_room()"><span>
+                Create
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -91,11 +94,9 @@
         <div class="row">
           <div class="col-lg-8 mx-auto">
             <h2>Join Room</h2>
-            <p class="lead">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Vero odio fugiat voluptatem dolor, provident officiis, id iusto! Obcaecati incidunt, qui nihil beatae magnam et repudiandae ipsa exercitationem, in, quo totam.</p>
-            <div class="container text-center">
-              Room Name<br>
-              <input type="text" name="roomname"><br>
-            </div>
+            <p class="lead">You can get an url from a room creator.
+                            All you need to do is that go to the url.<br>
+                            You can join a room if the room is right.</p>
           </div>
         </div>
       </div>
@@ -119,8 +120,8 @@
     <!-- Custom JavaScript for this theme -->
     <script src="js/scrolling-nav.js"></script>
 
-    <!-- Main js -->
-    <script src="main.js"></script>
+    <!-- Api js for create room -->
+    <script src="js/api.js"></script>
 
   </body>
 
