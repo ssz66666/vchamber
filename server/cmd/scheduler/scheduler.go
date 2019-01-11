@@ -7,7 +7,6 @@ import (
 
 	"github.com/UoB-Cloud-Computing-2018-KLS/vchamber/schedule"
 	"github.com/go-redis/redis"
-	"github.com/rs/cors"
 )
 
 var restaddr = flag.String("addr", ":8080", "RESTful Service bind address")
@@ -28,7 +27,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/room", sch.GetProxy())
-	withCORS := cors.Default().Handler(mux)
+	// withCORS := cors.Default().Handler(mux)
 
-	log.Fatal(http.ListenAndServe(*restaddr, withCORS))
+	log.Fatal(http.ListenAndServe(*restaddr, mux))
 }
