@@ -58,7 +58,7 @@ var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_
 
 // For masters
 if(m_token != null) {
-    var room_url = "http://" + host + ":63342" + "/?rid=" + rid;
+    var room_url = "http://" + host + ":80" + "/?rid=" + rid;
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
     document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
@@ -504,7 +504,7 @@ function stateToJsonString(){
     var payload =
         {
             // TODO: Ask hyun what local_rtt is? is it the RTT(round-trip-time) or the latency?
-            "rtt": local_lat * 2.0, 
+            "rtt": local_lat * 2.0,
             "state": {
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,

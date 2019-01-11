@@ -234,6 +234,7 @@ func (r *Room) RunManager() {
 	updateTicker := time.NewTicker(broadcastPeriod)
 	var bufferedUpdate *Message
 	updateCooldownTimer := time.NewTimer(updateCooldown)
+	updateCooldownTimer.Stop()
 	defer func() {
 		updateTicker.Stop()
 		shutdownTimer.Stop()
@@ -263,12 +264,10 @@ func (r *Room) RunManager() {
 					r.UpdateState(p, time.Since(m.ReceivedAt))
 					r.BroadcastState()
 				} else {
-					// push the update to stateUpdateQueue
+					// buffer the update
+					// timer has stopped
 					if bufferedUpdate == nil {
 						//start the timer
-						if updateCooldownTimer.Stop() {
-							<-updateCooldownTimer.C
-						}
 						updateCooldownTimer.Reset(9 * updateCooldown / 10)
 					}
 					bufferedUpdate = m
@@ -287,9 +286,6 @@ func (r *Room) RunManager() {
 		case c := <-r.deqClient:
 			r.killClient(c)
 			if c.state == clientStateMaster && len(r.masters) == 0 {
-				if !shutdownTimer.Stop() {
-					<-shutdownTimer.C
-				}
 				shutdownTimer.Reset(defaultMasterlessTimeout)
 			}
 		case <-updateTicker.C:

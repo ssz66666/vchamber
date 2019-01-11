@@ -14,8 +14,9 @@ const (
 )
 
 type ServerInfoMsg struct {
-	OK    bool `json:"ok"`
-	NRoom int  `json:"nroom"`
+	OK    bool     `json:"ok"`
+	NRoom int      `json:"nroom"`
+	Rooms []string `json:"rooms"`
 }
 
 type RoomCreatedMsg struct {
@@ -41,12 +42,17 @@ func RespondWithError(reason string, statusCode int, w http.ResponseWriter) {
 }
 
 func getServerInfo(s *Server, w http.ResponseWriter, r *http.Request) {
+	var rm []string
 	s.mutex.RLock()
 	nr := len(s.rooms)
+	for r := range s.rooms {
+		rm = append(rm, r)
+	}
 	s.mutex.RUnlock()
 	RespondWithJSON(&ServerInfoMsg{
 		true,
 		nr,
+		rm,
 	}, http.StatusOK, w)
 }
 
