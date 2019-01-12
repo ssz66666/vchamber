@@ -22,8 +22,10 @@ func main() {
 	for i := 0; i < (*nPerRoom - 1); i++ {
 		c, e := vsv.Connect(nil, "ws://"+*addr+"/ws", *defaultRoomID, *defaultToken)
 		if e != nil {
+			log.Printf("something wrong at n=%d", i)
 			log.Fatal(e)
 		}
+		log.Printf("successfully joined %d clients", *nPerRoom)
 		go c.ClientSendHeartbeat()
 		clients = append(clients, c)
 	}
