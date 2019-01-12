@@ -245,14 +245,18 @@ var updateLocalState = function(newState){
                 console.log('PLAYING RECEIVED');
                 removePlyrEventHandlers()
                 var pm = player.play();
-                pm.then(()=> {
-                    addPlyrEventHandlers()
-                },
-                (e)=> {
-                    // autoplay got rejected
-                    firstClick = true
-                    addPlyrEventHandlers()
-                })
+                if (pm != undefined) {
+                  pm.then(()=> {
+                      addPlyrEventHandlers()
+                  },
+                  (e)=> {
+                      // autoplay got rejected
+                      firstClick = true
+                      addPlyrEventHandlers()
+                  })
+                } else {
+                  addPlyrEventHandlers()
+                }
             }
             else if((playback_status == playback_status_type.paused) && !player.paused){
                 console.log('PAUSE RECEIVED');
@@ -268,6 +272,7 @@ var updateLocalState = function(newState){
 }
 
 var stateChanged = function(evt){
+    console.log('event type:' + evt.type)
     if (evt.detail.plyr.seeking) {
         // intermediastate, don't trigger a state update
         return
@@ -290,23 +295,12 @@ var stateChanged = function(evt){
     console.log(msg)
 }
 
-var seekedAndPaused = function(evt){
-    if (missedLatestUpdate) {
-        // last local state update was interrupted
-        updateLocalState(latestStateUpdate)
-        missedLatestUpdate = false
-    }
-    else if (evt.detail.plyr.paused) {
-        stateChanged(evt)
-    }
-}
-
 var addPlyrEventHandlers = function(){
     player.on('playing', stateChanged)
     player.on('pause', stateChanged)
     player.on('ended', stateChanged)
     player.on('ratechange', stateChanged)
-    player.on('seeked', seekedAndPaused)
+    // player.on('seeked', seekedAndPaused)
 }
 
 var removePlyrEventHandlers = function(){
@@ -314,7 +308,7 @@ var removePlyrEventHandlers = function(){
     player.off('pause', stateChanged)
     player.off('ended', stateChanged)
     player.off('ratechange', stateChanged)
-    player.off('seeked', seekedAndPaused)
+    // player.off('seeked', seekedAndPaused)
 }
 
 // //statechange EVENT is only available with youTube
