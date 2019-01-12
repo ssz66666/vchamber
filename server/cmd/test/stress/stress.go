@@ -25,10 +25,10 @@ func main() {
 			log.Printf("something wrong at n=%d", i)
 			log.Fatal(e)
 		}
-		log.Printf("successfully joined %d clients", *nPerRoom)
 		go c.ClientSendHeartbeat()
 		clients = append(clients, c)
 	}
+	log.Printf("successfully joined %d clients", *nPerRoom)
 	c, e := vsv.Connect(nil, "ws://"+*addr+"/ws", *defaultRoomID, *defaultToken)
 	if e != nil {
 		fmt.Println(e)
