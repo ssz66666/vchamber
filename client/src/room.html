@@ -37,11 +37,11 @@
         <button onclick="send_message('')">
             Send Message
         </button>
-        <button onclick="close_ws()">
-            Exit the room
+        <button onclick="close_listen()" id='closelistenbtn' hidden=true>
+            Stop following
         </button>
-        <button onclick="receiveTest()">
-            Receive test
+        <button onclick="start_listen()" id='startlistenbtn' hidden=true>
+            Start following
         </button>
         <br><br>
         <form>
@@ -50,6 +50,8 @@
             YOUTUBE URL <input type="text" value='' id="youtube_link">
             <input type="button" value="submit" onclick="newUrl()">
         </form>
+        <br><br>
+        <p id="listenstate" hidden=true>FOLLOWING</p>
     </div>
     <p id="tokens">
     </p>

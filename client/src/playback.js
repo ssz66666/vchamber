@@ -45,6 +45,7 @@ on('.js-forward', 'click', () => {
 });
 
 // Websocket Connection Logic
+var temp_loc = '/vchamber-new/client/src'
 var rid = localStorage.getItem("rid");
 var m_token = localStorage.getItem("m_token");
 var g_token = localStorage.getItem("g_token");
@@ -58,7 +59,7 @@ var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_
 
 // For masters
 if(m_token != null) {
-    var room_url = "http://" + host + ":63342" + "/?rid=" + rid;
+    var room_url = "http://" + host + ":63342" + temp_loc + "/?rid=" + rid;//Frank:add temp_loc for self-test
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
     document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
@@ -91,6 +92,7 @@ src_youtube = true;
 //var local_src = '';
 var master_client = false;
 var load_finished = false;
+var listen_update = true;
 var src_change = false;
 var status_change = false;
 var rate_change = false;
@@ -162,6 +164,9 @@ ws.onmessage = function(evt) {
                 //guest client(no control authority)
                 console.log(master_client)
                 master_client = false;
+                document.getElementById('listenstate').hidden = false;
+                document.getElementById('closelistenbtn').hidden = false;
+                document.getElementById('startlistenbtn').hidden = false;
             }
             break;
         //get PONG
@@ -176,6 +181,10 @@ ws.onmessage = function(evt) {
             break;
         //get STATE
         case 3:
+            if(listen_update == false && master_client == false){
+                //when guest client decides to block the update
+                break;
+            }
             console.log("State: " + evt.data)
             var playback_state = rec.payload
             var _src = playback_state.src;//url?use?
@@ -448,47 +457,24 @@ function newUrl(){
     console.log(player.source)
 }
 
-// function stateUpdate(){
-//     //DEBUG USE
-//     console.log(player.media.currentSrc);
-//     // console.log(player.media.paused);
-//     // console.log(player.media.ended);
-//     // console.log(player.media.muted);
-//     console.log(player.media.state);
-//     //setSrc
-//     if(src_change){
-//         //player.source.sources.src = local_src;
-//         // player.source = {
-//         //     type: 'video',
-//         //     sources: [{
-//         //         src: local_src,
-//         //         provider: 'youtube'
-//         //     }]
-//         // };
-//     }
-//     //setStatus
-//     if(local_status == playback_status_type.stopped && !player.stopped){
-//         console.log('STOP ACTION');
-//         player.stop();
-//     }
-//     else if(local_status == playback_status_type.playing && !player.playing){
-//         console.log('PLAYING ACTION');
-//         player.play();
-//     }
-//     else if(local_status == playback_status_type.paused && !player.paused){
-//         console.log('PAUSE ACTION');
-//         player.pause();
-//     }
-//
-//     //setPosition
-//     player.media.currentTime = local_position;
-//
-//     //setSpeed
-//     if(player.media.playbackRate != local_speed) {
-//         player.media.playbackRate = local_speed;
-//     }
-//
-// }
+function close_listen(){
+    if(master_client == true){
+        //only guest can change listen state
+        return;
+    }
+    listen_update = false;
+    write_document('listenstate','NOT FOLLOW')
+}
+
+function start_listen(){
+    if(master_client == true){
+        //only guest can change listen state
+        return;
+    }
+    listen_update = true;
+    write_document('listenstate','FOLLOWING')
+}
+
 
 function stateToJsonString(){
     var temp_status;
