@@ -1,0 +1,14 @@
+config:
+  target: "ws://localhost:8080/ws?rid=testroom&token=iamgod"
+  #processor: "./playback.js"
+  phases:
+    - duration: 20
+      arrivalRate: 60
+  ws:
+      # Set a custom subprotocol:
+      headers:
+        Sec-WebSocket-Protocol: vchamber_v1
+scenarios:
+  - engine: "ws"
+    flow:
+      - function: "test_function"
