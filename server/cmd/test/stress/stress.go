@@ -20,6 +20,7 @@ func main() {
 	var clients []*vsv.Client
 
 	for i := 0; i < (*nPerRoom - 1); i++ {
+		log.Printf("joining client %d", i)
 		c, e := vsv.Connect(nil, "ws://"+*addr+"/ws", *defaultRoomID, *defaultToken)
 		if e != nil {
 			log.Printf("something wrong at n=%d", i)

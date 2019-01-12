@@ -1,0 +1,35 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  selector:
+    matchLabels:
+      app: vchamber-test
+  replicas: 1 # deployment runs 1 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      labels:
+        app: vchamber-test
+    spec:
+      containers:
+      - name: websocketbackend
+        image: iad.ocir.io/ssz/vchamber/backend:v1
+        ports:
+        - containerPort: 8080 #Endpoint port
+      imagePullSecrets:
+      - name: ocirsecret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: NodePort #Exposes the service as a node port
+  ports:
+  - name: websocket
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: vchamber-test

@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
 	"github.com/rs/cors"
@@ -30,10 +30,16 @@ func main() {
 	}()
 
 	// start a zombie client
-	c, e := vserver.Connect(nil, "ws://localhost:8080/ws", "testroom", "iamgod")
-	if e != nil {
-		fmt.Println(e)
-		return
+	var c *vserver.Client
+	var e error
+	for {
+		c, e = vserver.Connect(nil, "ws://localhost:8080/ws", "testroom", "iamgod")
+		if e == nil {
+			break
+		} else {
+			log.Println("failed to connect to local testroom, trying again!")
+			time.Sleep(1 * time.Second)
+		}
 	}
 
 	go c.ClientSendHeartbeat()
