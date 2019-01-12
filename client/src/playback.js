@@ -136,6 +136,10 @@ var pingTicker
 var syncSeeking = false
 var firstClick = false
 
+var stable_pause = false
+var pauseTimer = null
+const bouncyPauseThreshold = 10 // 100 ms
+
 ws.onopen = function(evt) {
     console.log("Connection open ...")
 
@@ -195,9 +199,9 @@ ws.onmessage = function(evt) {
                 player.source = src;
                 addPlyrEventHandlers()
             }
-            if(player.seeking) {
+            if(player.seeking && !stable_pause) {
                 // user is seeking right now, don't annoy the user just yet
-                missedLatestUpdate = true
+                // missedLatestUpdate = true
                 break
             }
             updateLocalState(playback_state)
@@ -223,16 +227,17 @@ var updateLocalState = function(newState){
             var playback_position = playback_state.position + local_lat;
             var playback_speed = playback_state.speed;
             missedLatestUpdate = false
-
+            console.log("Buffering: " + player.buffered)
             var tolerance = Math.max(local_lat, 0.1)
             if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
                 }
-                removePlyrEventHandlers()
+                //removePlyrEventHandlers()
                 syncSeeking = true
                 player.currentTime = playback_position;
-                addPlyrEventHandlers()
+                // send a lot playing things when buffering is really heavy or lags...
+                //addPlyrEventHandlers()
             }
             if((playback_status == playback_status_type.stopped) && (!player.stopped) && (!player.ended)){
                 //some bug here
@@ -262,6 +267,7 @@ var updateLocalState = function(newState){
                 console.log('PAUSE RECEIVED');
                 removePlyrEventHandlers()
                 player.pause();
+                stable_pause = true
                 addPlyrEventHandlers()
             }
             if(player.speed != playback_speed){
@@ -272,11 +278,8 @@ var updateLocalState = function(newState){
 }
 
 var stateChanged = function(evt){
-    console.log('event type:' + evt.type)
-    if (evt.detail.plyr.seeking) {
-        // intermediastate, don't trigger a state update
-        return
-    }
+    // may not work when a user is seeking while pausing, and the server
+    // pushes a conflicting pause to the user
     if (syncSeeking) {
         syncSeeking = false
         return
@@ -295,17 +298,43 @@ var stateChanged = function(evt){
     console.log(msg)
 }
 
+var pauseEvtHandler = function(evt){
+    // detect stable pause
+    pauseTimer = setTimeout(function(){
+      stable_pause = true
+      stateChanged(evt)
+    }, bouncyPauseThreshold)
+}
+
+var findBouncyPause = function(evt){
+    clearTimeout(pauseTimer)
+}
+
+var seekingHandler = function(evt){
+    findBouncyPause(evt)
+    if (stable_pause) {
+        stateChanged(evt)
+    }
+}
+
 var addPlyrEventHandlers = function(){
-    player.on('playing', stateChanged)
-    player.on('pause', stateChanged)
+    player.on('play', findBouncyPause)
+    player.on('playing', function(evt){
+      stable_pause = false
+      stateChanged(evt)
+    })
+    player.on('seeking', seekingHandler)
+    player.on('pause', pauseEvtHandler)
     player.on('ended', stateChanged)
     player.on('ratechange', stateChanged)
     // player.on('seeked', seekedAndPaused)
 }
 
 var removePlyrEventHandlers = function(){
+    player.off('play', findBouncyPause)
     player.off('playing', stateChanged)
-    player.off('pause', stateChanged)
+    player.off('seeking', seekingHandler)
+    player.off('pause', pauseEvtHandler)
     player.off('ended', stateChanged)
     player.off('ratechange', stateChanged)
     // player.off('seeked', seekedAndPaused)
