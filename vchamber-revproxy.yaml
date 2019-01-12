@@ -1,23 +1,22 @@
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: apps/v1beta1
+kind: Deployment
 metadata:
-  name: vc-backend
+  name: vc-revproxy
 spec:
-  serviceName: ws-backend-service
   selector:
     matchLabels:
       app: vchamber
-      tier: backend
+      tier: revproxy
   replicas: 1 # deployment runs 1 pods matching the template
   template: # create pods using pod definition in this template
     metadata:
       labels:
         app: vchamber
-        tier: backend
+        tier: revproxy
     spec:
       containers:
-      - name: wsbackend
-        image: iad.ocir.io/ssz/vchamber/backend:v1
+      - name: revproxy
+        image: iad.ocir.io/ssz/vchamber/revproxy:v1
         ports:
         - containerPort: 8080 #Endpoint port
       imagePullSecrets:
@@ -26,12 +25,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ws-backend-service
+  name: revproxy-service
 spec:
+  type: LoadBalancer #Exposes the service as a node port
   ports:
   - name: websocket
-    port: 8080
-  clusterIP: None
+    port: 80
+    protocol: TCP
+    targetPort: 8080
   selector:
     app: vchamber
-    tier: backend
+    tier: revproxy

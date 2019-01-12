@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -13,28 +14,30 @@ import (
 
 	vserver "github.com/UoB-Cloud-Computing-2018-KLS/vchamber/server"
 	hostpool "github.com/bitly/go-hostpool"
+	"github.com/go-redis/redis"
 )
 
 // configurable constants
 const (
 	SchedulingUpdatePeriod = 30 * time.Second
+	SchedulePubSubChannel  = "schedule"
 )
 
 // url schemes for our backends
 var (
 	BackendWSScheme, _   = url.Parse("ws://example.com:8080")
-	BackendRESTScheme, _ = url.Parse("http://example.com:8081")
+	BackendRESTScheme, _ = url.Parse("http://example.com:8080")
 )
 
 // Scheduler implements a RESTful API to create rooms, with the same API as implemented
 // in the underlying backend servers. It delegates requests to a backend and register
 // it with the room registry
 type Scheduler struct {
-	store        Storage
-	info         *ScheduleInfo
-	pool         hostpool.HostPool
-	orchestrator url.URL
-	mutex        *sync.RWMutex
+	store  Storage
+	info   *ScheduleInfo
+	pool   hostpool.HostPool
+	pubsub *redis.PubSub
+	mutex  *sync.RWMutex
 }
 
 // SchedulingStrategy enum
@@ -64,13 +67,14 @@ func NewScheduleInfo() *ScheduleInfo {
 }
 
 // NewScheduler creates a runnable scheduler with given orchestrator and room registry
-func NewScheduler(orAPI url.URL, s Storage) *Scheduler {
+func NewScheduler(rclient *redis.Client, s Storage) *Scheduler {
+	ps := rclient.Subscribe(SchedulePubSubChannel)
 	return &Scheduler{
-		store:        s,
-		info:         NewScheduleInfo(),
-		pool:         nil,
-		orchestrator: orAPI,
-		mutex:        &sync.RWMutex{},
+		store:  s,
+		info:   NewScheduleInfo(),
+		pool:   hostpool.New([]string{""}),
+		pubsub: ps,
+		mutex:  &sync.RWMutex{},
 	}
 }
 
@@ -100,22 +104,19 @@ func (sch *Scheduler) NextBackend() string {
 // RunScheduler runs the scheduler daemon that periodically polls update
 // from orchestrator
 func (sch *Scheduler) RunScheduler() {
-	ticker := time.NewTicker(SchedulingUpdatePeriod)
+	ch := sch.pubsub.Channel()
 	for {
 		select {
-		case <-ticker.C:
-			sch.PollSchedulingInfo()
+		case m := <-ch:
+			log.Printf("received new schedule info update %s", m)
+			var s ScheduleInfo
+			json.Unmarshal([]byte(m.Payload), &s)
+			sch.mutex.Lock()
+			sch.info = &s
+			sch.RebuildPool()
+			sch.mutex.Unlock()
 		}
 	}
-}
-
-// PollSchedulingInfo polls update from orchestrator and update the backend pool
-func (sch *Scheduler) PollSchedulingInfo() {
-	// poll from orchestrator
-	// TODO: implement this if time allows
-	sch.mutex.Lock()
-	defer sch.mutex.Unlock()
-
 }
 
 // ProxyDirector returns a Director function for the reverseproxy

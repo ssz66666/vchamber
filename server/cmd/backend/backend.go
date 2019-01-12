@@ -10,8 +10,7 @@ import (
 	"github.com/rs/cors"
 )
 
-var wsaddr = flag.String("ws", ":8080", "WebSocket Service bind address")
-var restaddr = flag.String("rest", ":8081", "RESTful API bind address")
+var listenaddr = flag.String("addr", ":8080", "WebSocket Service bind address")
 
 func main() {
 
@@ -19,23 +18,15 @@ func main() {
 
 	server := vserver.NewServer()
 
-	wsMux := vserver.NewVChamberWSMux(server)
-
-	restMux := vserver.NewVChamberRestMux(server)
+	mux := vserver.NewVChamberRestMux(server)
+	mux.HandleFunc("/ws", vserver.GetVChamberWSHandleFunc(server))
 
 	go server.Run()
 	server.AddRoom(vserver.NewRoom("testroom", server, "iamgod", "nobody"))
 
 	go func() {
-		withCORS := cors.Default().Handler(restMux)
-		log.Fatal("RESTful API: ", http.ListenAndServe(*restaddr, withCORS))
-	}()
-	// TODO: use TLS
-	go func() {
-		err := http.ListenAndServe(*wsaddr, wsMux)
-		if err != nil {
-			log.Fatal("WSServer: ", err)
-		}
+		withCORS := cors.Default().Handler(mux)
+		log.Fatal("vChamber backend: ", http.ListenAndServe(*listenaddr, withCORS))
 	}()
 
 	// start a zombie client

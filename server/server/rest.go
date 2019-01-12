@@ -14,8 +14,9 @@ const (
 )
 
 type ServerInfoMsg struct {
-	OK    bool `json:"ok"`
-	NRoom int  `json:"nroom"`
+	OK    bool     `json:"ok"`
+	NRoom int      `json:"nroom"`
+	Rooms []string `json:"rooms"`
 }
 
 type RoomCreatedMsg struct {
@@ -23,6 +24,17 @@ type RoomCreatedMsg struct {
 	RoomID    string `json:"roomID"`
 	MasterKey string `json:"masterToken"`
 	GuestKey  string `json:"guestToken"`
+}
+
+type RoomInfo struct {
+	RoomID    string `json:"roomID"`
+	MasterKey string `json:"masterToken"`
+	GuestKey  string `json:"guestToken"`
+}
+
+type AllRoomInfoMsg struct {
+	OK    bool        `json:"ok"`
+	Rooms []*RoomInfo `json:"rooms"`
 }
 
 func RespondWithJSON(m interface{}, statusCode int, w http.ResponseWriter) {
@@ -41,12 +53,41 @@ func RespondWithError(reason string, statusCode int, w http.ResponseWriter) {
 }
 
 func getServerInfo(s *Server, w http.ResponseWriter, r *http.Request) {
+	var rms []string
 	s.mutex.RLock()
 	nr := len(s.rooms)
+	for rm := range s.rooms {
+		rms = append(rms, rm)
+	}
 	s.mutex.RUnlock()
 	RespondWithJSON(&ServerInfoMsg{
 		true,
 		nr,
+		rms,
+	}, http.StatusOK, w)
+}
+
+func destroyServer(s *Server, w http.ResponseWriter, r *http.Request) {
+	s.closingGuard.Do(func() { close(s.closing) })
+	RespondWithJSON(map[string]bool{
+		"ok": true,
+	}, http.StatusOK, w)
+}
+
+func getAllRoomInfo(s *Server, w http.ResponseWriter, r *http.Request) {
+	var rms []*RoomInfo
+	s.mutex.RLock()
+	for _, rm := range s.rooms {
+		rms = append(rms, &RoomInfo{
+			RoomID:    rm.ID,
+			MasterKey: rm.masterKey,
+			GuestKey:  rm.guestKey,
+		})
+	}
+	s.mutex.RUnlock()
+	RespondWithJSON(&AllRoomInfoMsg{
+		true,
+		rms,
 	}, http.StatusOK, w)
 }
 
@@ -82,17 +123,23 @@ func destroyRoom(s *Server, w http.ResponseWriter, r *http.Request) {
 }
 
 // NewVChamberRestMux makes the RESTful API servemux of server
-func NewVChamberRestMux(server *Server) http.Handler {
+func NewVChamberRestMux(server *Server) *mux.Router {
 	restMux := mux.NewRouter().StrictSlash(true)
-	restMux.HandleFunc("/", http.NotFound)
 	restMux.HandleFunc("/room", func(w http.ResponseWriter, r *http.Request) {
 		createRoom(server, w, r)
 	}).Methods("GET", "POST")
 	restMux.HandleFunc("/server", func(w http.ResponseWriter, r *http.Request) {
 		getServerInfo(server, w, r)
 	}).Methods("GET")
-	restMux.HandleFunc("/room/{rid}", func(w http.ResponseWriter, r *http.Request) {
-		destroyRoom(server, w, r)
+	restMux.HandleFunc("/server", func(w http.ResponseWriter, r *http.Request) {
+		destroyServer(server, w, r)
 	}).Methods("DELETE")
+	restMux.HandleFunc("/allroom", func(w http.ResponseWriter, r *http.Request) {
+		getAllRoomInfo(server, w, r)
+	}).Methods("GET")
+
+	// restMux.HandleFunc("/room/{rid}", func(w http.ResponseWriter, r *http.Request) {
+	// 	destroyRoom(server, w, r)
+	// }).Methods("DELETE")
 	return restMux
 }

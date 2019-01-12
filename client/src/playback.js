@@ -91,7 +91,7 @@ src_youtube = true;
 
 //var local_src = '';
 var master_client = false;
-var load_finished = false;
+// var load_finished = false;
 var listen_update = true;
 var src_change = false;
 var status_change = false;
@@ -372,11 +372,11 @@ function send_message(message){
     if(master_client == false || player.duration == 0){
         return;
     }
-    if(!load_finished && JSON.parse(message).type == msg_type.stateupdate){
-        load_finished = true;
-        console.log("LOAD FINISHED");
-        return;
-    }
+    // if(!load_finished && JSON.parse(message).type == msg_type.stateupdate){
+    //     load_finished = true;
+    //     console.log("LOAD FINISHED");
+    //     return;
+    // }
     // write_document('input','SEND')
     var wait_times = 0
     while(ws.readyState != 1){
@@ -391,7 +391,7 @@ function send_message(message){
     }
     if(ws.readyState == 1){
         ws.send(message)
-        // console.log('Send message:' + message)
+        console.log('WS Send message:' + message)
     }
 
     // console.log('websocket closed')
@@ -490,7 +490,7 @@ function stateToJsonString(){
     var payload =
         {
             // TODO: Ask hyun what local_rtt is? is it the RTT(round-trip-time) or the latency?
-            "rtt": local_lat * 2.0, 
+            "rtt": local_lat * 2.0,
             "state": {
                 "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
                 "status":temp_status,
