@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -51,6 +52,7 @@ func (o *Orchestrator) UpdateBackendInfo(clientset *kubernetes.Clientset) {
 				continue
 			}
 			for j := 0; j < len(m.Rooms); j++ {
+				log.Printf("Refreshing room binding %s : %s", m.Rooms[j], host)
 				o.store.Set(m.Rooms[j], host)
 			}
 		}
@@ -61,6 +63,7 @@ func (o *Orchestrator) UpdateBackendInfo(clientset *kubernetes.Clientset) {
 		Backends: b,
 		Strategy: SchedulingStrategyBalance,
 	})
+	log.Printf("Publishing scheduling policy update: %v", string(msg))
 	if err := o.client.Publish(SchedulePubSubChannel, string(msg)).Err(); err != nil {
 		panic(err)
 	}
