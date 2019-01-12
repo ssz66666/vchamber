@@ -1,0 +1,21 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: vc-orchestrator
+spec:
+  selector:
+    matchLabels:
+      app: vchamber
+      tier: orchestrator
+  replicas: 1 # deployment runs 1 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      labels:
+        app: vchamber
+        tier: orchestrator
+    spec:
+      containers:
+      - name: orchestrator
+        image: iad.ocir.io/ssz/vchamber/orchestrator:v1
+      imagePullSecrets:
+      - name: ocirsecret

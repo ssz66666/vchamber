@@ -1,0 +1,9 @@
+FROM golang:1.11.4-stretch
+
+ADD . /vchamber
+
+WORKDIR /vchamber
+
+RUN go build -mod=vendor -o orchestrator cmd/orchestrator/orchestrator.go
+
+ENTRYPOINT ["/vchamber/orchestrator"]

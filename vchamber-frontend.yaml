@@ -1,37 +1,39 @@
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: apps/v1beta1
+kind: Deployment
 metadata:
-  name: vc-backend
+  name: vc-frontend
 spec:
-  serviceName: ws-backend-service
   selector:
     matchLabels:
       app: vchamber
-      tier: backend
+      tier: frontend
   replicas: 1 # deployment runs 1 pods matching the template
   template: # create pods using pod definition in this template
     metadata:
       labels:
         app: vchamber
-        tier: backend
+        tier: frontend
     spec:
       containers:
-      - name: wsbackend
-        image: iad.ocir.io/ssz/vchamber/backend:v1
+      - name: frontend
+        image: iad.ocir.io/ssz/vchamber/frontend:v1
         ports:
-        - containerPort: 8080 #Endpoint port
+        - containerPort: 80 #Endpoint port
+        - containerPort: 443
       imagePullSecrets:
       - name: ocirsecret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ws-backend-service
+  name: frontend-service
 spec:
+  type: LoadBalancer #Exposes the service as a node port
   ports:
-  - name: websocket
-    port: 8080
-  clusterIP: None
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
   selector:
     app: vchamber
-    tier: backend
+    tier: frontend

@@ -1,0 +1,9 @@
+FROM golang:1.11.4-stretch
+
+ADD . /test
+
+WORKDIR /test
+
+RUN go build -mod=vendor -o app test.go
+
+ENTRYPOINT ["/test/app"]

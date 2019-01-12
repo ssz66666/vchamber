@@ -8,4 +8,4 @@ RUN go build -mod=vendor -o backend cmd/backend/backend.go
 
 ENTRYPOINT ["/vchamber/backend"]
 
-EXPOSE 8080 8081
+EXPOSE 8080
