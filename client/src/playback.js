@@ -28,14 +28,14 @@ var temp_loc = '/vchamber-new/client/src'
 
 
 var host_show = "localhost";
-var host = "lbs.vchamber.me";
+var host = "vchamber.me";
 var ws_port_show = ":63342";
-var ws_port = "80";
+var ws_port = ":80";
 var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
 
 // For masters
 if(m_token != null) {
-    var room_url = "http://" + host_show + ws_port_show + temp_loc + "/?rid=" + rid;//Frank:add temp_loc for self-test
+    var room_url = "http://" + host  + "/?rid=" + rid;//Frank:add temp_loc for self-test
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
     document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
