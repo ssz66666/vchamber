@@ -230,7 +230,7 @@ func (c *MultiplexedClientConn) GetID() string         { return c.ID }
 func (c *MultiplexedClientConn) GetRemoteAddr() string { return c.remoteAddr }
 func (c *MultiplexedClientConn) GetState() clientState { return c.state }
 func (c *MultiplexedClientConn) SendMessage(m *Message) {
-	c.parent.server.workQueue <- &work{
+	c.parent.server.sendQueue <- &work{
 		t:   workTypeSend,
 		mux: c.parent,
 		p: &MultiplexedMessage{
@@ -241,7 +241,7 @@ func (c *MultiplexedClientConn) SendMessage(m *Message) {
 	}
 }
 func (c *MultiplexedClientConn) Finalise() {
-	c.parent.server.workQueue <- &work{
+	c.parent.server.sendQueue <- &work{
 		t:   workTypeSend,
 		mux: c.parent,
 		p: &MultiplexedMessage{
@@ -280,7 +280,7 @@ func (mux *ConnMultiplexor) HandleRecv() {
 			log.Printf("Reverse proxy %v disconnected", mux.conn.RemoteAddr)
 			return
 		}
-		mux.server.workQueue <- &work{
+		mux.server.recvQueue <- &work{
 			t:   workTypeRecv,
 			mux: mux,
 			p:   m,

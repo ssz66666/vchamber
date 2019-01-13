@@ -44,7 +44,8 @@ type Server struct {
 	enqRoom      chan *Room
 	deqRoom      chan *Room
 	muxes        map[string]*ConnMultiplexor
-	workQueue    chan *work
+	sendQueue    chan *work
+	recvQueue    chan *work
 	closing      chan bool
 	closingGuard sync.Once
 	mutex        sync.RWMutex // guard rooms for look up
@@ -125,6 +126,7 @@ func NewServer() *Server {
 		make(chan *Room),
 		make(map[string]*ConnMultiplexor),
 		make(chan *work),
+		make(chan *work),
 		make(chan bool),
 		sync.Once{},
 		sync.RWMutex{},
@@ -164,7 +166,8 @@ func (s *Server) killRoom(r *Room) {
 func (s *Server) Run() {
 	ncpu := runtime.NumCPU()
 	log.Printf("spawning %d worker goroutines for json serialisation\n", ncpu)
-	RunWorkers(ncpu, s.workQueue)
+	RunWorkers(ncpu, s.sendQueue)
+	RunWorkers(ncpu, s.recvQueue)
 	defer func() {
 		s.mutex.Lock()
 		// kill all rooms
@@ -172,7 +175,8 @@ func (s *Server) Run() {
 			s.killRoom(r)
 		}
 		s.mutex.Unlock()
-		close(s.workQueue)
+		close(s.sendQueue)
+		close(s.recvQueue)
 	}()
 	for {
 		select {
