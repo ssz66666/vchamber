@@ -162,7 +162,9 @@ func (s *Server) killRoom(r *Room) {
 
 // Run manages server s
 func (s *Server) Run() {
-	RunWorkers(runtime.NumCPU(), s.workQueue)
+	ncpu := runtime.NumCPU()
+	log.Printf("spawning %d worker goroutines for json serialisation\n", ncpu)
+	RunWorkers(ncpu, s.workQueue)
 	defer func() {
 		s.mutex.Lock()
 		// kill all rooms
