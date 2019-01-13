@@ -1,0 +1,25 @@
+config:
+  target: "ws://lbs.vchamber.me/ws?rid=bgt57e625g5cmflf4b3g&token=nFZ94oxLPFg1Vw54T367AsIzG1LjLCQnhzmHUW_vga4="
+  phases:
+    - duration: 30
+      arrivalRate: 200
+  ws:
+      # Set a custom subprotocol:
+      headers:
+        Sec-WebSocket-Protocol: vchamber_v1
+scenarios:
+    - engine: "ws"
+      flow:
+        - think: 1
+        - send: '{"type":4, "payload": {"rtt": 0.005, "state":
+          {
+            "src":"https://www.youtube.com/watch?v=pLDXOebjblk&index=6&list=RD-DLxTDbwmYE",
+            "status":1,
+            "position":0.28770897234344484,
+            "speed":1.0,
+            "duration":282.401
+          }}}'
+          # Json format
+          # x: 5 => {"x": 5}
+          # think: 1 => wait one second
+        - think: 30

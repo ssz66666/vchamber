@@ -73,9 +73,23 @@ if(join != null) {
 }
 
 var ws = new WebSocket(ws_addr, "vchamber_v1");
+//var ws = new WebSocket("wss://echo.websocket.org");
+
+//var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+// var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
+
+//SET DEFAULT VIDEO
+player.source = {
+    type: 'video',
+    sources: [{
+        src: 'https://www.youtube.com/watch?v=AF1E_DxHQ_A',
+        provider: 'youtube'
+    }]
+};
+src_youtube = true;
 
 //var local_src = '';
-var master_client = true;
+var master_client = false;
 var load_finished = false;
 var src_change = false;
 var status_change = false;
@@ -84,6 +98,7 @@ var rate_change = false;
 // var local_position = 0.0;
 // var local_speed = 1.0;
 var local_lat = 0.0;
+var src_youtube = false;
 
 var playback_status_type = {
     stopped: 0,
@@ -121,6 +136,10 @@ var pingTicker
 var syncSeeking = false
 var firstClick = false
 
+var stable_pause = false
+var pauseTimer = null
+const bouncyPauseThreshold = 10 // 100 ms
+
 ws.onopen = function(evt) {
     console.log("Connection open ...")
 
@@ -139,6 +158,15 @@ ws.onmessage = function(evt) {
         //get HELLO
         case 0:
             clientStatus = rec.payload.authority
+            if(clientStatus == 'master'){
+                //master client
+                master_client = true;
+            }
+            else{
+                //guest client(no control authority)
+                console.log(master_client)
+                master_client = false;
+            }
             break;
         //get PONG
         case 2:
@@ -171,9 +199,9 @@ ws.onmessage = function(evt) {
                 player.source = src;
                 addPlyrEventHandlers()
             }
-            if(player.seeking) {
+            if(player.seeking && !stable_pause) {
                 // user is seeking right now, don't annoy the user just yet
-                missedLatestUpdate = true
+                // missedLatestUpdate = true
                 break
             }
             updateLocalState(playback_state)
@@ -184,72 +212,6 @@ ws.onmessage = function(evt) {
     }
 };
 
-// function receiveTest(){
-//     var type = 3;
-//     var rece = '{"status":"2", "position":100, "speed":2.0, "src":"t.mp4"}'
-//     //var rece = '{"type": "3", "payload": "[{"status": "2", "position": "100", "speed":"2.0", "src":"t.mp4"}]"}'
-//     var rec_time = new Date() / 1000;
-//     var rec = rece;//JSON.parse(rece);
-//     //console.log("receive json: " + rec.type + rec.payload);
-// //logic part
-//     switch(type) {
-//         //get HELLO
-//         case 0:
-//
-//             break;
-//         //get PONG
-//         case 2:
-//             var time_info = JSON.parse(rec);
-//             var send_time = time_info.sendtime;
-//             var serv_time = time_info.servicetime;
-//
-//             estimate_latency(send_time, serv_time, rec_time);
-//
-//             setTimeout(send_ping(), 1000);
-//             break;
-//         //get STATE
-//         case 3:
-//             var playback_state = JSON.parse(rec);
-//             console.log("STATE:"+playback_state);
-//             var src = playback_state.src;//url?use?
-//             var playback_status = playback_state.status;
-//             var playback_position = playback_state.position + local_rtt;
-//             var playback_speed = playback_state.speed;
-//             if(local_src!=src){
-//                 local_src = src;
-//                 src_change = true;
-//             }
-//             else{
-//                 src_change = false;
-//             }
-//             if(local_position - playback_position > 0.5 || local_position - playback_position < -0.5){
-//                 local_position = playback_position;
-//             }
-//             if(local_status != playback_status){
-//                 local_status = playback_status;//is there any bug? confused about STOPED->PAUSED
-//                 status_change = true;
-//             }
-//             else{
-//                 status_change = false;
-//             }
-//             if(local_speed != playback_speed){
-//                 local_speed = playback_speed;
-//                 rate_change = true;
-//             }
-//             else{
-//                 rate_change = false;
-//             }
-//             stateUpdate();
-//             break;
-//         //get STATEUPDATE
-//         case 4:
-//             console.error("On message should not receive STATEUPDATE")
-//             //not the case, should be send message
-//             break;
-//         default:
-//             break;
-//     }
-// }
 
 ws.onclose = function(evt) {
     console.log("Connection closed.");
@@ -265,16 +227,17 @@ var updateLocalState = function(newState){
             var playback_position = playback_state.position + local_lat;
             var playback_speed = playback_state.speed;
             missedLatestUpdate = false
-
+            console.log("Buffering: " + player.buffered)
             var tolerance = Math.max(local_lat, 0.1)
             if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
                 }
-                removePlyrEventHandlers()
+                //removePlyrEventHandlers()
                 syncSeeking = true
                 player.currentTime = playback_position;
-                addPlyrEventHandlers()
+                // send a lot playing things when buffering is really heavy or lags...
+                //addPlyrEventHandlers()
             }
             if((playback_status == playback_status_type.stopped) && (!player.stopped) && (!player.ended)){
                 //some bug here
@@ -287,19 +250,24 @@ var updateLocalState = function(newState){
                 console.log('PLAYING RECEIVED');
                 removePlyrEventHandlers()
                 var pm = player.play();
-                pm.then(()=> {
-                    addPlyrEventHandlers()
-                },
-                (e)=> {
-                    // autoplay got rejected
-                    firstClick = true
-                    addPlyrEventHandlers()
-                })
+                if (pm != undefined) {
+                  pm.then(()=> {
+                      addPlyrEventHandlers()
+                  },
+                  (e)=> {
+                      // autoplay got rejected
+                      firstClick = true
+                      addPlyrEventHandlers()
+                  })
+                } else {
+                  addPlyrEventHandlers()
+                }
             }
             else if((playback_status == playback_status_type.paused) && !player.paused){
                 console.log('PAUSE RECEIVED');
                 removePlyrEventHandlers()
                 player.pause();
+                stable_pause = true
                 addPlyrEventHandlers()
             }
             if(player.speed != playback_speed){
@@ -310,10 +278,8 @@ var updateLocalState = function(newState){
 }
 
 var stateChanged = function(evt){
-    if (evt.detail.plyr.seeking) {
-        // intermediastate, don't trigger a state update
-        return
-    }
+    // may not work when a user is seeking while pausing, and the server
+    // pushes a conflicting pause to the user
     if (syncSeeking) {
         syncSeeking = false
         return
@@ -332,31 +298,46 @@ var stateChanged = function(evt){
     console.log(msg)
 }
 
-var seekedAndPaused = function(evt){
-    if (missedLatestUpdate) {
-        // last local state update was interrupted
-        updateLocalState(latestStateUpdate)
-        missedLatestUpdate = false
-    }
-    else if (evt.detail.plyr.paused) {
+var pauseEvtHandler = function(evt){
+    // detect stable pause
+    pauseTimer = setTimeout(function(){
+      stable_pause = true
+      stateChanged(evt)
+    }, bouncyPauseThreshold)
+}
+
+var findBouncyPause = function(evt){
+    clearTimeout(pauseTimer)
+}
+
+var seekingHandler = function(evt){
+    findBouncyPause(evt)
+    if (stable_pause) {
         stateChanged(evt)
     }
 }
 
 var addPlyrEventHandlers = function(){
-    player.on('playing', stateChanged)
-    player.on('pause', stateChanged)
+    player.on('play', findBouncyPause)
+    player.on('playing', function(evt){
+      stable_pause = false
+      stateChanged(evt)
+    })
+    player.on('seeking', seekingHandler)
+    player.on('pause', pauseEvtHandler)
     player.on('ended', stateChanged)
     player.on('ratechange', stateChanged)
-    player.on('seeked', seekedAndPaused)
+    // player.on('seeked', seekedAndPaused)
 }
 
 var removePlyrEventHandlers = function(){
+    player.off('play', findBouncyPause)
     player.off('playing', stateChanged)
-    player.off('pause', stateChanged)
+    player.off('seeking', seekingHandler)
+    player.off('pause', pauseEvtHandler)
     player.off('ended', stateChanged)
     player.off('ratechange', stateChanged)
-    player.off('seeked', seekedAndPaused)
+    // player.off('seeked', seekedAndPaused)
 }
 
 // //statechange EVENT is only available with youTube
@@ -454,6 +435,40 @@ function send_ping() {
     var send_data = '{"type":' + msg_type.ping + ', "payload":' + payload + '}';
     send_message(send_data)
 
+}
+
+function newUrl(){
+    if(master_client == false){
+        return;
+    }
+    var youtube_url = document.getElementById("youtube_link").value;
+    var mp4_url = document.getElementById("mp4_link").value;
+//SOME BUG OF MP4 VERSION
+    // if(mp4_url != ''){
+    //     console.log("MP4")
+    //     player.source = {
+    //         type: 'video',
+    //         sources: [{
+    //             src: mp4_url,
+    //             tpye:'video/mp4',
+    //             size: 576,
+    //         }]
+    //     };
+    //     console.log("MP4")
+    //     src_youtube = false;
+    // }
+    if(youtube_url != ''){
+        console.log("YOUTUBE")
+        player.source = {
+            type: 'video',
+            sources: [{
+                src: youtube_url,
+                provider: 'youtube'
+            }]
+        };
+        src_youtube = true;
+    }
+    console.log(player.source)
 }
 
 // function stateUpdate(){
