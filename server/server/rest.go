@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -139,20 +138,6 @@ func NewVChamberRestMux(server *Server) *mux.Router {
 		getAllRoomInfo(server, w, r)
 	}).Methods("GET")
 
-	// revproxy
-	restMux.HandleFunc("/join", func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		proxyid := q.Get("proxyid")
-		server.mutex.RLock()
-		mux, ok := server.muxes[proxyid]
-		server.mutex.RUnlock()
-		if !ok {
-			log.Printf("failed to find connmux for revproxy host %v", r.RemoteAddr)
-			http.Error(w, "invalid revproxy remote addr", http.StatusInternalServerError)
-			return
-		}
-		handleWSClientConnect(mux, w, r)
-	}).Methods("GET", "POST")
 	// restMux.HandleFunc("/room/{rid}", func(w http.ResponseWriter, r *http.Request) {
 	// 	destroyRoom(server, w, r)
 	// }).Methods("DELETE")

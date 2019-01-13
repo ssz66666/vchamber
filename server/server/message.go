@@ -59,7 +59,14 @@ const (
 	MessageTypeReserved MessageType = 99
 )
 
-func (m *Message) UnmarshalJSON(data []byte) error {
+// Serialise a Message to its wire format as []byte
+func (m *Message) Serialise() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+// Deserialise a Message stored in data in its wire format back to a struct
+// and store it to the value pointed to by m
+func Deserialise(data []byte, m *Message) error {
 	// TODO: should store it in an interface{} first and check if it is actually valid
 	var rm receivedMessage
 

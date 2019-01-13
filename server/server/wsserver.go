@@ -1,11 +1,9 @@
 package server
 
 import (
-	"encoding/json"
 	"log"
 	"math"
 	"net/http"
-	"runtime"
 	"sync"
 	"time"
 
@@ -30,12 +28,12 @@ const (
 )
 
 const (
-	HeartbeatTimeout = 30 * time.Second
+	heartbeatTimeout = 30 * time.Second
 	// heartbeatPeriod  = heartbeatTimeOut * 9 / 10
-	BroadcastPeriod          = 5 * time.Second
-	WriteWait                = 10 * time.Second
-	DefaultMasterlessTimeout = 5 * time.Minute
-	UpdateCooldown           = 1 * time.Second
+	broadcastPeriod          = 5 * time.Second
+	writeWait                = 10 * time.Second
+	defaultMasterlessTimeout = 5 * time.Minute
+	updateCooldown           = 1 * time.Second
 )
 
 // Server encapsulates server-level global data
@@ -43,8 +41,6 @@ type Server struct {
 	rooms        map[string]*Room // a map of rooms
 	enqRoom      chan *Room
 	deqRoom      chan *Room
-	muxes        map[string]*ConnMultiplexor
-	workQueue    chan *work
 	closing      chan bool
 	closingGuard sync.Once
 	mutex        sync.RWMutex // guard rooms for look up
@@ -53,11 +49,11 @@ type Server struct {
 // Room encapsulates room-level global data and manages users in a room
 type Room struct {
 	ID        string
-	clients   map[string]VCClientConn // a map with id:client kv pairs
-	masters   map[string]VCClientConn
+	clients   map[string]*ClientConn // a map with id:client kv pairs
+	masters   map[string]*ClientConn
 	recvQueue chan *Message // deserialise early in parallel in separate goroutines
-	enqClient chan VCClientConn
-	deqClient chan VCClientConn
+	enqClient chan *ClientConn
+	deqClient chan *ClientConn
 	closing   chan bool
 	masterKey string
 	guestKey  string
@@ -73,14 +69,6 @@ const (
 	clientStateMaster
 )
 
-type VCClientConn interface {
-	GetID() string
-	SendMessage(*Message)
-	GetState() clientState
-	GetRemoteAddr() string
-	Finalise() // run by room manager goroutine
-}
-
 // ClientConn encapsulates an established client websocket connection
 type ClientConn struct {
 	ID        string
@@ -90,15 +78,6 @@ type ClientConn struct {
 	closing   chan bool
 	state     clientState
 	room      *Room
-}
-
-func (c *ClientConn) GetID() string          { return c.ID }
-func (c *ClientConn) GetRemoteAddr() string  { return c.conn.RemoteAddr().String() }
-func (c *ClientConn) SendMessage(m *Message) { c.sendQueue <- m }
-func (c *ClientConn) GetState() clientState  { return c.state }
-func (c *ClientConn) Finalise() {
-	close(c.closing)
-	close(c.sendQueue)
 }
 
 var wsUpgrader = GetWSUpgrader()
@@ -123,8 +102,6 @@ func NewServer() *Server {
 		make(map[string]*Room),
 		make(chan *Room),
 		make(chan *Room),
-		make(map[string]*ConnMultiplexor),
-		make(chan *work),
 		make(chan bool),
 		sync.Once{},
 		sync.RWMutex{},
@@ -162,9 +139,6 @@ func (s *Server) killRoom(r *Room) {
 
 // Run manages server s
 func (s *Server) Run() {
-	ncpu := runtime.NumCPU()
-	log.Printf("spawning %d worker goroutines for json serialisation\n", ncpu)
-	RunWorkers(ncpu, s.workQueue)
 	defer func() {
 		s.mutex.Lock()
 		// kill all rooms
@@ -172,7 +146,6 @@ func (s *Server) Run() {
 			s.killRoom(r)
 		}
 		s.mutex.Unlock()
-		close(s.workQueue)
 	}()
 	for {
 		select {
@@ -240,36 +213,35 @@ func (r *Room) GetCurrentStateMessage() *Message {
 func (r *Room) BroadcastState() {
 	m := r.GetCurrentStateMessage()
 	for _, c := range r.clients {
-		m.Sender = c.GetID()
-		c.SendMessage(m)
+		c.sendQueue <- m
 	}
 }
 
 func (r *Room) SendState(cid string) {
 	m := r.GetCurrentStateMessage()
 	if c, ok := r.clients[cid]; ok {
-		m.Sender = c.GetID()
-		c.SendMessage(m)
+		c.sendQueue <- m
 	}
 }
 
-func (r *Room) joinClient(c VCClientConn) {
+func (r *Room) joinClient(c *ClientConn) {
 	if nil != c {
-		r.clients[c.GetID()] = c
-		if c.GetState() == clientStateMaster {
-			r.masters[c.GetID()] = c
+		r.clients[c.ID] = c
+		if c.state == clientStateMaster {
+			r.masters[c.ID] = c
 		}
 	}
 }
 
 // killClient removes a client from room r, NOT thread-safe
-func (r *Room) killClient(c VCClientConn) {
+func (r *Room) killClient(c *ClientConn) {
 	if nil != c {
-		if _c, ok := r.clients[c.GetID()]; ok && (_c == c) {
-			log.Println("removing client", c.GetRemoteAddr(), "cid:", c.GetID())
-			delete(r.clients, c.GetID())
-			delete(r.masters, c.GetID())
-			c.Finalise()
+		if _c, ok := r.clients[c.ID]; ok && (_c == c) {
+			log.Println("removing client", c.conn.RemoteAddr(), "cid:", c.ID)
+			delete(r.clients, c.ID)
+			delete(r.masters, c.ID)
+			close(c.closing)
+			close(c.sendQueue)
 		}
 	}
 }
@@ -277,10 +249,10 @@ func (r *Room) killClient(c VCClientConn) {
 // RunManager manages room r
 func (r *Room) RunManager() {
 
-	shutdownTimer := time.NewTimer(DefaultMasterlessTimeout)
-	updateTicker := time.NewTicker(BroadcastPeriod)
+	shutdownTimer := time.NewTimer(defaultMasterlessTimeout)
+	updateTicker := time.NewTicker(broadcastPeriod)
 	var bufferedUpdate *Message
-	updateCooldownTimer := time.NewTimer(UpdateCooldown)
+	updateCooldownTimer := time.NewTimer(updateCooldown)
 	updateCooldownTimer.Stop()
 	defer func() {
 		updateTicker.Stop()
@@ -306,7 +278,7 @@ func (r *Room) RunManager() {
 				// TODO: we need to somehow handle conflicting state updates
 				// TODO: when we have duration we can then make the video stop as it ends
 				p := m.Payload.(*PlaybackStateUpdateMessage)
-				if time.Since(r.state.lastUpdated) > UpdateCooldown {
+				if time.Since(r.state.lastUpdated) > updateCooldown {
 					// log.Printf("received state update from %s, new state %v", m.Sender, p.State)
 					r.UpdateState(p, time.Since(m.ReceivedAt))
 					r.BroadcastState()
@@ -315,7 +287,7 @@ func (r *Room) RunManager() {
 					// timer has stopped
 					if bufferedUpdate == nil {
 						//start the timer
-						updateCooldownTimer.Reset(9 * UpdateCooldown / 10)
+						updateCooldownTimer.Reset(9 * updateCooldown / 10)
 					}
 					bufferedUpdate = m
 					log.Printf("buffered state update from %s, proposed new state %v", m.Sender, p.State)
@@ -324,16 +296,16 @@ func (r *Room) RunManager() {
 
 		case c := <-r.enqClient:
 			r.joinClient(c)
-			r.SendState(c.GetID())
-			if c.GetState() == clientStateMaster && len(r.masters) == 1 {
+			r.SendState(c.ID)
+			if c.state == clientStateMaster && len(r.masters) == 1 {
 				if !shutdownTimer.Stop() {
 					<-shutdownTimer.C
 				}
 			}
 		case c := <-r.deqClient:
 			r.killClient(c)
-			if c.GetState() == clientStateMaster && len(r.masters) == 0 {
-				shutdownTimer.Reset(DefaultMasterlessTimeout)
+			if c.state == clientStateMaster && len(r.masters) == 0 {
+				shutdownTimer.Reset(defaultMasterlessTimeout)
 			}
 		case <-updateTicker.C:
 			r.BroadcastState()
@@ -348,11 +320,11 @@ func (r *Room) RunManager() {
 func NewRoom(id string, server *Server, mKey string, gKey string) *Room {
 	return &Room{
 		ID:        id,
-		clients:   make(map[string]VCClientConn),
-		masters:   make(map[string]VCClientConn),
+		clients:   make(map[string]*ClientConn),
+		masters:   make(map[string]*ClientConn),
 		recvQueue: make(chan *Message, roomMessageQueueSize),
-		enqClient: make(chan VCClientConn),
-		deqClient: make(chan VCClientConn),
+		enqClient: make(chan *ClientConn),
+		deqClient: make(chan *ClientConn),
 		closing:   make(chan bool),
 		masterKey: mKey,
 		guestKey:  gKey,
@@ -404,7 +376,7 @@ func NewClientConn(id string, room *Room, conn *websocket.Conn, state clientStat
 }
 
 // the goroutine that runs this function reads from c.conn
-func (c *ClientConn) HandleWSClientRecv() {
+func (c *ClientConn) handleWSClientRecv() {
 	defer func() {
 		close(c.recvQueue)
 		c.room.deqClient <- c
@@ -426,7 +398,7 @@ func (c *ClientConn) HandleWSClientRecv() {
 			// uncomment to remove client after irresponsive for heartbeatTimeOut
 			// c.conn.SetReadDeadline(time.Now().Add(heartbeatTimeout))
 			var msg Message
-			err = json.Unmarshal(m, &msg)
+			err = Deserialise(m, &msg)
 			if nil != err {
 				log.Println("Invalid message:", string(m))
 				continue
@@ -437,7 +409,7 @@ func (c *ClientConn) HandleWSClientRecv() {
 }
 
 // the goroutine that runs this function writes to c.conn
-func (c *ClientConn) HandleWSClientSend() {
+func (c *ClientConn) handleWSClientSend() {
 	defer func() {
 		c.conn.Close()
 		c.room.deqClient <- c
@@ -455,8 +427,8 @@ func (c *ClientConn) HandleWSClientSend() {
 				p = (msg.Payload.(*PongMessage))
 				p.SvcTime = time.Since(msg.ReceivedAt).Seconds()
 			}
-			b, _ := json.Marshal(msg)
-			c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
+			b, _ := msg.Serialise()
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			err := c.conn.WriteMessage(websocket.TextMessage, b)
 			if err != nil {
 				return
@@ -468,7 +440,7 @@ func (c *ClientConn) HandleWSClientSend() {
 }
 
 // the goroutine that runs this function controls other mutable states in c
-func (c *ClientConn) HandleVChamberClient() {
+func (c *ClientConn) handleVChamberClient() {
 	defer func() {
 		c.room.deqClient <- c
 	}()
@@ -481,7 +453,7 @@ func (c *ClientConn) HandleVChamberClient() {
 
 			// TODO: handle client specific part of the protocol
 			// e.g. authentication
-			m.Sender = c.GetID()
+			m.Sender = c.ID
 
 			switch m.Type {
 			case MessageTypePing:
@@ -495,10 +467,10 @@ func (c *ClientConn) HandleVChamberClient() {
 						Timestamp: p.Timestamp,
 					},
 				}
-				c.SendMessage(&pong)
+				c.sendQueue <- &pong
 
 			case MessageTypeStateUpdate:
-				if c.GetState() == clientStateMaster {
+				if c.state == clientStateMaster {
 					c.room.recvQueue <- m
 				} else {
 					// otherwise we silently drop it
@@ -514,25 +486,11 @@ func (c *ClientConn) HandleVChamberClient() {
 	}
 }
 
-type ErrClientConnect int
+func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
 
-const (
-	ErrClientConnectBadRoomID ErrClientConnect = iota
-	ErrClientConnectBadToken
-)
-
-func (e ErrClientConnect) Error() string {
-	switch e {
-	case ErrClientConnectBadRoomID:
-		return ErrInvalidRoomID
-	case ErrClientConnectBadToken:
-		return ErrInvalidToken
-	default:
-		return "Unknown connect error"
-	}
-}
-
-func checkValidClient(s *Server, roomid string, token string) (*Room, clientState, error) {
+	// parse query string and check if roomid is valid
+	q := r.URL.Query()
+	roomid := q.Get("rid")
 	var room *Room
 
 	if "" != roomid {
@@ -545,10 +503,13 @@ func checkValidClient(s *Server, roomid string, token string) (*Room, clientStat
 	}
 
 	if nil == room {
-		return nil, clientStateUnauthorised, ErrClientConnectBadRoomID
+		log.Println("client", r.RemoteAddr, "Requested invalid room ID", roomid)
+		http.Error(w, ErrInvalidRoomID, http.StatusBadRequest)
+		return
 	}
 
 	// token check
+	token := q.Get("token")
 	cState := clientStateUnauthorised
 	if room.CheckMasterKey(token) {
 		cState = clientStateMaster
@@ -557,24 +518,8 @@ func checkValidClient(s *Server, roomid string, token string) (*Room, clientStat
 	}
 
 	if cState == clientStateUnauthorised {
-		return nil, clientStateUnauthorised, ErrClientConnectBadToken
-	}
-
-	return room, cState, nil
-}
-
-func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
-
-	// parse query string and check if roomid is valid
-	q := r.URL.Query()
-	roomid := q.Get("rid")
-	token := q.Get("token")
-
-	room, cState, err := checkValidClient(s, roomid, token)
-
-	if err != nil {
-		log.Printf("client from %v fails to connect: %v", r.RemoteAddr, err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		log.Println("client", r.RemoteAddr, "supplied invalid token", token)
+		http.Error(w, ErrInvalidToken, http.StatusUnauthorized)
 		return
 	}
 
@@ -593,9 +538,9 @@ func handleWSClient(s *Server, w http.ResponseWriter, r *http.Request) {
 	cid := xid.New().String()
 	client := NewClientConn(cid, room, conn, cState)
 
-	go client.HandleVChamberClient()
-	go client.HandleWSClientSend()
-	go client.HandleWSClientRecv()
+	go client.handleVChamberClient()
+	go client.handleWSClientSend()
+	go client.handleWSClientRecv()
 
 	cType := ""
 	if cState == clientStateMaster {
