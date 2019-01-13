@@ -2,8 +2,7 @@
 var params = window.location.search;
 if(params[0] == "?") {
     console.log(params);
-    localStorage.setItem("join", params);
-    window.location.href="room.html";
+    window.location.href="room.html" + params;
 }
 
 //const api_url = "http://localhost:8081/";
@@ -25,8 +24,7 @@ function get_data(rec) {
         alert('You cannot create a room now');
         return;
     }
-    localStorage.setItem("rid",rec.roomID);
-    localStorage.setItem("m_token",rec.masterToken);
-    localStorage.setItem("g_token",rec.guestToken);
-    window.location.href="room.html";
+    var url_ = "room.html"
+    url_ = url_+'?rid='+rec.roomID+'&token='+rec.masterToken + '&m='+rec.masterToken + "&g=" + rec.guestToken;
+    window.location.href = url_;
 }

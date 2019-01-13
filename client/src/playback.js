@@ -1,3 +1,9 @@
+const urlParams = new URLSearchParams(window.location.search);
+const rid = urlParams.get('rid');
+const token = urlParams.get('token')
+const m_token = urlParams.get('m');
+const g_token = urlParams.get("g");
+
 const PING_INTERVAL = 1000 // 1sec
 
 const player = new Plyr('#player');
@@ -44,14 +50,11 @@ on('.js-forward', 'click', () => {
     player.forward();
 });
 
+
 // Websocket Connection Logic
 var temp_loc = '/vchamber-new/client/src'
-var rid = localStorage.getItem("rid");
-var m_token = localStorage.getItem("m_token");
-var g_token = localStorage.getItem("g_token");
-localStorage.removeItem("rid");
-localStorage.removeItem("m_token");
-localStorage.removeItem("g_token");
+
+
 
 var host_show = "localhost";
 var host = "lbs.vchamber.me";
@@ -68,8 +71,7 @@ if(m_token != null) {
 }
 
 // For a guest
-var join = localStorage.getItem("join");
-localStorage.removeItem("join");
+var join = window.location.search
 
 if(join != null) {
     ws_addr = "ws://" + host + ":" + ws_port + "/ws" + join;
@@ -170,7 +172,6 @@ ws.onmessage = function(evt) {
             }
             else{
                 //guest client(no control authority)
-                console.log(master_client)
                 master_client = false;
                 listen_update = true;
                 document.getElementById('changelistenbtn').hidden = false;
