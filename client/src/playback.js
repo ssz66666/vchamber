@@ -368,10 +368,6 @@ function write_document(id, text) {
     document.getElementById(id).innerHTML = text;
 }
 
-function sendStateUpdate(){
-    //should be used together with webpage
-}
-
 function send_message(message){
     if(master_client == false || player.duration == 0){
         return;
