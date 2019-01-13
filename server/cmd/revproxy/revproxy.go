@@ -15,11 +15,14 @@ func main() {
 	flag.Parse()
 
 	// store, _ := schedule.NewStorageBackend(schedule.StorageBackendMem)
+	// store.Set("testroom", "localhost:8080")
+
 	store, err := schedule.NewStorageBackend(schedule.StorageBackendRedis, schedule.RedisClientSentinel, *redis)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	rp := schedule.NewLoadBalancedReverseProxy(store)
-	log.Fatal(http.ListenAndServe(*wsaddr, rp.GetProxy()))
+	// log.Fatal(http.ListenAndServe(*wsaddr, rp.GetProxy())
+	log.Fatal(http.ListenAndServe(*wsaddr, rp))
 }

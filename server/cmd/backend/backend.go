@@ -20,6 +20,7 @@ func main() {
 
 	mux := vserver.NewVChamberRestMux(server)
 	mux.HandleFunc("/ws", vserver.GetVChamberWSHandleFunc(server))
+	mux.HandleFunc("/rev", vserver.GetVChamberWSRevProxyHandleFunc(server))
 
 	go server.Run()
 	server.AddRoom(vserver.NewRoom("testroom", server, "iamgod", "nobody"))
