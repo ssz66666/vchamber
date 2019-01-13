@@ -31,7 +31,7 @@ var host_show = "localhost";
 var host = "vchamber.me";
 var ws_port_show = ":63342";
 var ws_port = ":80";
-var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
+var ws_addr = "ws://" + host + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
 
 // For masters
 if(m_token != null) {
@@ -45,7 +45,7 @@ if(m_token != null) {
 var join = window.location.search
 
 if(join != null) {
-    ws_addr = "ws://" + host + ":" + ws_port + "/ws" + join;
+    ws_addr = "ws://" + host + ws_port + "/ws" + join;
 }
 
 var ws = new WebSocket(ws_addr, "vchamber_v1");
