@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <title>vChamber - A simple video coplay platform for Colleagues, Friends, Lovers</title> 
     <meta name="robots" content="noindex">
-    <link rel="stylesheet" href="css/demo.css?v=2">
+    <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/frank.css" rel="stylesheet">
+    <!--<link rel="stylesheet" href="css/demo.css?v=2">-->
     <link rel="stylesheet" href="https://cdn.plyr.io/3.4.6/plyr.css">
     <style class="cp-pen-styles">/* This is purely for the demo */
     .container {
@@ -18,8 +20,9 @@
     </style>
 </head>
 
-<body>
-<div class="container">
+<body >
+<div id="web_bg" style="background-image: url(./img/nice-background3.jpg);"></div>
+<div class="container" id="media_player">
     <video controls playsinline
            id="player">
         <!-- Video files -->
@@ -31,11 +34,6 @@
     </video>
 
     <div class="actions">
-        <button type="button" class="btn js-play" >Play</button>
-        <button type="button" class="btn js-pause" >Pause</button>
-        <button type="button" class="btn js-stop" >Stop</button>
-        <button type="button" class="btn js-rewind" >Rewind</button>
-        <button type="button" class="btn js-forward" >Forward</button>
         <button class="button" onclick="change_listen()" id='changelistenbtn' hidden=true>
             Stop Following
         </button>
