@@ -53,13 +53,15 @@ localStorage.removeItem("rid");
 localStorage.removeItem("m_token");
 localStorage.removeItem("g_token");
 
-var host = "localhost";
-var ws_port = "8080";
+var host_show = "localhost";
+var host = "lbs.vchamber.me";
+var ws_port_show = ":63342";
+var ws_port = "80";
 var ws_addr = "ws://" + host + ":" + ws_port + "/ws?rid=" + rid + "&token=" + m_token;
 
 // For masters
 if(m_token != null) {
-    var room_url = "http://" + host + ":63342" + temp_loc + "/?rid=" + rid;//Frank:add temp_loc for self-test
+    var room_url = "http://" + host_show + ws_port_show + temp_loc + "/?rid=" + rid;//Frank:add temp_loc for self-test
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
     document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
@@ -80,13 +82,14 @@ var ws = new WebSocket(ws_addr, "vchamber_v1");
 // var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 //SET DEFAULT VIDEO
-player.source = {
+var video_src= {
     type: 'video',
     sources: [{
         src: 'https://www.youtube.com/watch?v=AF1E_DxHQ_A',
         provider: 'youtube'
     }]
 };
+player.source = video_src
 src_youtube = true;
 
 //var local_src = '';
@@ -159,6 +162,7 @@ ws.onmessage = function(evt) {
             if(clientStatus == 'master'){
                 //master client
                 master_client = true;
+                document.getElementById('youtubearea').hidden = false;
             }
             else{
                 //guest client(no control authority)
@@ -185,10 +189,9 @@ ws.onmessage = function(evt) {
                 //when guest client decides to block the update
                 break;
             }
-            console.log("State: " + evt.data)
+            console.log("Receive State: " + evt.data)
             var playback_state = rec.payload
             var _src = playback_state.src;//url?use?
-
             latestStateUpdate = playback_state
             //src change
             if(_src == '') {
@@ -198,10 +201,11 @@ ws.onmessage = function(evt) {
                 break
             }
             var src = JSON.parse(decodeURIComponent(_src))
-
-            if(player.source!=src){
+            if(video_src.sources[0].src != src.sources[0].src){
+            //if(video_src.sources[0].src != src.sources[0].src){
                 removePlyrEventHandlers()
-                player.source = src;
+                video_src = src
+                player.source = video_src
                 addPlyrEventHandlers()
             }
             if(player.seeking) {
@@ -391,7 +395,9 @@ function send_message(message){
     }
     if(ws.readyState == 1){
         ws.send(message)
-        console.log('WS Send message:' + message)
+        if(JSON.parse(message).type==msg_type.stateupdate){
+            console.log('WS Send message:' + message)
+        }
     }
 
     // console.log('websocket closed')
@@ -427,8 +433,8 @@ function newUrl(){
     if(master_client == false){
         return;
     }
-    var youtube_url = document.getElementById("youtube_link").value;
-    var mp4_url = document.getElementById("mp4_link").value;
+    var youtube_url = document.getElementById("youtubelink").value;
+    //var mp4_url = document.getElementById("mp4_link").value;
 //SOME BUG OF MP4 VERSION
     // if(mp4_url != ''){
     //     console.log("MP4")
@@ -444,17 +450,43 @@ function newUrl(){
     //     src_youtube = false;
     // }
     if(youtube_url != ''){
-        console.log("YOUTUBE")
-        player.source = {
+        console.log("YOUTUBE:"+youtube_url)
+        removePlyrEventHandlers()
+        video_src = {
             type: 'video',
             sources: [{
                 src: youtube_url,
                 provider: 'youtube'
             }]
         };
+        player.source = video_src;
         src_youtube = true;
+        addPlyrEventHandlers();
+        var payload =
+            {
+                "rtt": local_lat * 2.0,
+                "state": {
+                    "src":encodeURIComponent(JSON.stringify(video_src)), //source is a string, not a JSON object
+                    "status":playback_status_type.paused,
+                    "position":0,
+                    "speed":1,
+                    "duration":100
+                }
+            };
+        var updateMsg = {
+            "type": msg_type.stateupdate,
+            "payload": payload
+        }
+        var msg = JSON.stringify(updateMsg);
+        if(ws.readyState == 1){
+            ws.send(msg)
+            console.log('WS Send message:' + msg)
+        }
+        else{
+            console.err('WS NOT READY')
+        }
     }
-    console.log(player.source)
+    //console.log(player.source)
 }
 
 function close_listen(){
@@ -492,7 +524,7 @@ function stateToJsonString(){
             // TODO: Ask hyun what local_rtt is? is it the RTT(round-trip-time) or the latency?
             "rtt": local_lat * 2.0,
             "state": {
-                "src":encodeURIComponent(JSON.stringify(player.source)), //source is a string, not a JSON object
+                "src":encodeURIComponent(JSON.stringify(video_src)), //source is a string, not a JSON object
                 "status":temp_status,
                 "position":player.currentTime,
                 "speed":player.speed,
