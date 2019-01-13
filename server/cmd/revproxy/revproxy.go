@@ -23,6 +23,8 @@ func main() {
 	}
 
 	rp := schedule.NewLoadBalancedReverseProxy(store)
+	mux := http.NewServeMux()
+	mux.Handle("/ws", rp)
 	// log.Fatal(http.ListenAndServe(*wsaddr, rp.GetProxy())
-	log.Fatal(http.ListenAndServe(*wsaddr, rp))
+	log.Fatal(http.ListenAndServe(*wsaddr, mux))
 }
