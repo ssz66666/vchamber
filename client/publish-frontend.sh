@@ -1,8 +1,5 @@
 #/bin/sh
 
-# rebuild vendor folder
-go mod vendor
-
 VERSION=$(date '+%Y-%m-%d-%H-%M-%S')-$(git rev-parse HEAD)
 REPO='iad.ocir.io/ssz/vchamber'
 
