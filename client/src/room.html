@@ -2,7 +2,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <title>vChamber - A simple video coplay platform for Colleagues, Friends, Lovers</title> 
     <meta name="robots" content="noindex">
+    <link rel="stylesheet" href="css/demo.css?v=2">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.4.6/plyr.css">
     <style class="cp-pen-styles">/* This is purely for the demo */
     .container {
@@ -29,19 +31,13 @@
     </video>
 
     <div class="actions">
-        <button type="button" class="btn js-play">Play</button>
-        <button type="button" class="btn js-pause">Pause</button>
-        <button type="button" class="btn js-stop">Stop</button>
-        <button type="button" class="btn js-rewind">Rewind</button>
-        <button type="button" class="btn js-forward">Forward</button>
-        <button onclick="send_message('')">
-            Send Message
-        </button>
-        <button onclick="close_listen()" id='closelistenbtn' hidden=true>
-            Stop following
-        </button>
-        <button onclick="start_listen()" id='startlistenbtn' hidden=true>
-            Start following
+        <button type="button" class="btn js-play" >Play</button>
+        <button type="button" class="btn js-pause" >Pause</button>
+        <button type="button" class="btn js-stop" >Stop</button>
+        <button type="button" class="btn js-rewind" >Rewind</button>
+        <button type="button" class="btn js-forward" >Forward</button>
+        <button class="button" onclick="change_listen()" id='changelistenbtn' hidden=true>
+            Stop Following
         </button>
         <br><br>
         <form>
@@ -53,7 +49,6 @@
             </p>
         </form>
         <br><br>
-        <p id="listenstate" hidden=true>FOLLOWING</p>
     </div>
     <p id="tokens">
     </p>

@@ -172,9 +172,8 @@ ws.onmessage = function(evt) {
                 //guest client(no control authority)
                 console.log(master_client)
                 master_client = false;
-                document.getElementById('listenstate').hidden = false;
-                document.getElementById('closelistenbtn').hidden = false;
-                document.getElementById('startlistenbtn').hidden = false;
+                listen_update = true;
+                document.getElementById('changelistenbtn').hidden = false;
             }
             break;
         //get PONG
@@ -510,22 +509,19 @@ function newUrl(){
     //console.log(player.source)
 }
 
-function close_listen(){
-    if(master_client == true){
-        //only guest can change listen state
-        return;
-    }
-    listen_update = false;
-    write_document('listenstate','NOT FOLLOW')
-}
 
-function start_listen(){
+function change_listen(){
     if(master_client == true){
         //only guest can change listen state
         return;
     }
-    listen_update = true;
-    write_document('listenstate','FOLLOWING')
+    listen_update = !listen_update;
+    if(listen_update == true){
+        write_document('changelistenbtn','Stop Following')
+    }
+    else{
+        write_document('changelistenbtn','Start Following')
+    }
 }
 
 
