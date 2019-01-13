@@ -10,4 +10,4 @@ docker build -f Dockerfile-backend -t $REPO/backend:$VERSION .
 
 docker push $REPO/backend:$VERSION
 
-kubectl set image statefulset/vc-backend wsbackend=$REPO/backend:$VERSION
+kubectl set image deployment/backend websocketbackend=$REPO/backend:$VERSION

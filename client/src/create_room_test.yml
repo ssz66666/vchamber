@@ -1,0 +1,9 @@
+config:
+  target: 'http://localhost:8081'
+  phases:
+    - duration: 20
+      arrivalRate: 20
+scenarios:
+  - flow:
+    - get:
+        url: "/room"
