@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"runtime"
 	"sync"
 	"time"
 
@@ -164,7 +163,8 @@ func (s *Server) killRoom(r *Room) {
 
 // Run manages server s
 func (s *Server) Run() {
-	ncpu := runtime.NumCPU()
+	// ncpu := runtime.NumCPU()
+	ncpu := 128
 	log.Printf("spawning %d worker goroutines for json serialisation\n", ncpu)
 	RunWorkers(ncpu, s.sendQueue)
 	RunWorkers(ncpu, s.recvQueue)

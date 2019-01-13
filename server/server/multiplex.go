@@ -107,6 +107,7 @@ func processWork(w *work) {
 					Type:       MessageTypePong,
 					Payload: &PongMessage{
 						Timestamp: p.Timestamp,
+						SvcTime:   time.Since(msg.ReceivedAt).Seconds(),
 					},
 				}
 				mmsg := MultiplexedMessage{
