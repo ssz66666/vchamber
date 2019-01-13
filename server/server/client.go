@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -63,7 +64,7 @@ func (c *Client) ClientSendHeartbeat() {
 
 // SendMessage is a helper function to send a message from c
 func (c *Client) SendMessage(msg *Message) error {
-	b, _ := msg.Serialise()
+	b, _ := json.Marshal(msg)
 	c.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	return c.Conn.WriteMessage(websocket.TextMessage, b)
 }
@@ -98,7 +99,7 @@ func Connect(dialer *websocket.Dialer, addr string, rid string, token string) (*
 	}
 
 	var hello Message
-	err = Deserialise(b, &hello)
+	err = json.Unmarshal(b, &hello)
 	if err != nil && hello.Type != MessageTypeHello {
 		conn.WriteMessage(websocket.CloseMessage, []byte{})
 		conn.Close()
