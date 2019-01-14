@@ -64,7 +64,7 @@ var ws = new WebSocket(ws_addr, "vchamber_v1");
 var video_src= {
     type: 'video',
     sources: [{
-        src: 'https://www.youtube.com/watch?v=AF1E_DxHQ_A',
+        src: 'https://www.youtube.com/watch?v=vhibjb0F_nk&list=PLpb_YpLuoHTmEf4NHTUxs1NDjMgbmqRPq',
         provider: 'youtube'
     }]
 };
