@@ -42,12 +42,12 @@ if(m_token != null) {
     document.getElementById("master_link").innerHTML =
     '<input type="text" class="form-control" id="m_link" value="' + m_url + '" onclick="auto_select(\'m_link\')" readonly>' +
     '<div class="input-group-append">' +
-    '<button class="btn btn-primary" type="button" onclick="copy_clip(\'' + m_url + '\')">Copy</button>' +
+    '<button class="btn btn-primary" type="button" onclick="copy_clip(\'m_link\')">Copy</button>' +
     '</div>';
     document.getElementById("guest_link").innerHTML =
     '<input type="text" class="form-control" id="g_link" value="' + g_url + '" onclick="auto_select(\'g_link\')" readonly>' +
     '<div class="input-group-append">' +
-    '<button class="btn btn-primary" type="button" onclick="copy_clip(\'' + g_url + '\')">Copy</button>' +
+    '<button class="btn btn-primary" type="button" onclick="copy_clip(\'g_link\')">Copy</button>' +
     '</div>';
 }
 
@@ -588,9 +588,10 @@ function estimate_latency(send_t, serve_t, rec_t) {
     // }
 }
 
-function copy_clip(url) {
-    var copyText = url;
-    navigator.clipboard.writeText(copyText);
+function copy_clip(id) {
+    var copyText = document.getElementById(id);
+    copyText.select();
+    document.execCommand("copy");
 }
 
 function auto_select(id) {
