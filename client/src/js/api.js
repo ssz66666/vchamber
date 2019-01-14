@@ -6,7 +6,11 @@ if(params[0] == "?") {
 }
 
 //const api_url = "http://localhost:8081/";
-const api_url = "http://api.vchamber.me:80/";
+
+var api_proto = window.location.protocol + '//'
+
+const api_host_path = "api.vchamber.me/";
+var api_url = api_proto + api_host_path
 
 function create_room() {
     $.ajax({

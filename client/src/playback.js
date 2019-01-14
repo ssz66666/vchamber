@@ -31,11 +31,15 @@ var host_show = "localhost";
 var host = "vchamber.me";
 const ws_host = "lbs.vchamber.me"
 var ws_port_show = ":63342";
-var ws_addr = "ws://" + ws_host + "/ws?rid=" + rid + "&token=" + m_token;
+var ws_proto = 'ws://'
+if (window.location.protocol == 'https:') {
+    ws_proto = 'wss://'
+}
+var ws_addr = ws_proto + ws_host + "/ws?rid=" + rid + "&token=" + m_token;
 
 // For masters
 if(m_token != null) {
-    var room_url = "http://" + host  + "/?rid=" + rid;//Frank:add temp_loc for self-test
+    var room_url = window.location.protocol + '//' + window.location.host  + "/?rid=" + rid;//Frank:add temp_loc for self-test
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
     document.getElementById("tokens").style.display = "block";
@@ -55,7 +59,7 @@ if(m_token != null) {
 var join = window.location.search
 
 if(join != null) {
-    ws_addr = "ws://" + ws_host + "/ws" + join;
+    ws_addr = ws_proto + ws_host + "/ws" + join;
 }
 
 var ws = new WebSocket(ws_addr, "vchamber_v1");
