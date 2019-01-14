@@ -49,22 +49,6 @@ if(m_token != null) {
     '<div class="input-group-append">' +
     '<button class="btn btn-outline-secondary" type="button" onclick="copy_clip(\'' + g_url + '\')">Copy</button>' +
     '</div>';
-    /*
-    document.getElementById("tokens").innerHTML =
-    '<kbd>Master URL</kbd>' +
-    '<div class="col-8">' +
-    '<div class="input-group mb-3">' +
-    '<input type="text" class="form-control" id="m_link" value="' + m_url + '" onclick="auto_select(\'m_link\')" class="field left" readonly />' +
-    '<div class="input-group-append">' +
-    '<button class="btn btn-outline-secondary" type="button" onclick="copy_clip(\'' + m_url + '\')">Copy</button></div>' +
-    '</div></div>' +
-    //'<button type="button" class="btn btn-primary" onclick="copy_clip(\'' + m_url + '\')">Copy</button></div>' +
-    '<kbd>Guest URL</kbd>' +
-    '<div class="col-8">' +
-    '<input type="text" class="form-control" id="g_link" value="' + g_url + '" onclick="auto_select(\'g_link\')" class="field left" readonly />' +
-    //'<button type="button" class="btn btn-primary" onclick="window.open(\'' + g_url + '\',\'_blank\'); return false;">Guest URL</button> ' +
-    '<button type="button" class="btn btn-primary" onclick="copy_clip(\'' + g_url + '\')">Copy</button></div>';
-    */
 }
 
 // For a guest
