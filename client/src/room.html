@@ -13,9 +13,6 @@
     <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 
     <style class="cp-pen-styles">/* This is purely for the demo */
-    .container {
-        margin: 0 auto;
-    }
     .plyr {
         border-radius: 4px;
         margin-bottom: 15px;
@@ -24,16 +21,13 @@
         background-color: #ff0000;
         color: #ffffff;
     }
-    .row-centered {
-        text-align:center;
-    }
     </style>
 </head>
 
 <body id="page-top">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top" id="mainNav">
       <div class="container">
-        <a class="navbar-brand js-scroll-trigger" href="http://vchamber.me:80/">Vchamber</a>
+        <a class="navbar-brand js-scroll-trigger" href="/">vChamber</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -42,9 +36,12 @@
 
 <div id="web_bg" style="background-image: url(./img/nice-background3.jpg);"></div>
 <div class="container">
+  <div class="row">
+  <div class="col"></div>
+  <div class="col-8">
     <!--<div id=media_player>-->
-    <div class="form-group row row-centered">
-        <div class="col-8" id=media_player>
+    <div class="form-group row">
+        <div class="col-12" id=media_player>
             <video controls playsinline id="player">
             <!-- Video files -->
             <source src="" type="youtube" size="576">
@@ -57,7 +54,7 @@
         </button>
     </div>
     <div class="form-group row">
-        <div class=col-8>
+        <div class=col-12>
             <h1 class="navbar-brand"><kbd>Youtube</kbd></h1>
             <div class="input-group mb-3">
                 <div class="input-group-prepend">
@@ -65,7 +62,7 @@
                 </div>
                 <input type="text" id="youtubelink" class="form-control" placeholder="Youtube URL" aria-label="Youtube URL" aria-describedby="basic-addon1">
                 <div class="input-group-append">
-                    <button class="btn btn-outline-secondary" type="button" onclick="newUrl()">Go</button>
+                    <button class="btn btn-primary" type="button" onclick="newUrl()">Go</button>
                 </div>
             </div>
         </div>
@@ -73,24 +70,21 @@
     <div id="tokens" style="display: none">
       <kbd>Master URL</kbd>
       <div class="form-group row">
-        <div class="col-8">
+        <div class="col-12">
           <div class="input-group mb-3" id="master_link"></div>
         </div>
       </div>
     <kbd>Guest URL</kbd>
     <div class="form-group row">
-      <div class="col-8">
+      <div class="col-12">
         <div class="input-group mb-3" id="guest_link">
         </div>
       </div>
     </div>
     </div>
-    <!--
-    <form>
-        <div id="tokens">
-        </div>
-    </form>
-  -->
+</div>
+<div class="col"></div>
+</div>
 </div>
 <script src="https://cdn.plyr.io/3.4.6/plyr.js"></script>
 <script>
