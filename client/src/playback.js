@@ -38,7 +38,33 @@ if(m_token != null) {
     var room_url = "http://" + host  + "/?rid=" + rid;//Frank:add temp_loc for self-test
     var m_url = room_url + "&token=" + m_token;
     var g_url = room_url + "&token=" + g_token;
-    document.getElementById("tokens").innerHTML = "Master URL: " + m_url + "<br><br> Guest URL: " + g_url;
+    document.getElementById("tokens").style.display = "block";
+    document.getElementById("master_link").innerHTML =
+    '<input type="text" class="form-control" id="m_link" value="' + m_url + '" onclick="auto_select(\'m_link\')" readonly>' +
+    '<div class="input-group-append">' +
+    '<button class="btn btn-outline-secondary" type="button" onclick="copy_clip(\'' + m_url + '\')">Copy</button>' +
+    '</div>';
+    document.getElementById("guest_link").innerHTML =
+    '<input type="text" class="form-control" id="g_link" value="' + g_url + '" onclick="auto_select(\'g_link\')" readonly>' +
+    '<div class="input-group-append">' +
+    '<button class="btn btn-outline-secondary" type="button" onclick="copy_clip(\'' + g_url + '\')">Copy</button>' +
+    '</div>';
+    /*
+    document.getElementById("tokens").innerHTML =
+    '<kbd>Master URL</kbd>' +
+    '<div class="col-8">' +
+    '<div class="input-group mb-3">' +
+    '<input type="text" class="form-control" id="m_link" value="' + m_url + '" onclick="auto_select(\'m_link\')" class="field left" readonly />' +
+    '<div class="input-group-append">' +
+    '<button class="btn btn-outline-secondary" type="button" onclick="copy_clip(\'' + m_url + '\')">Copy</button></div>' +
+    '</div></div>' +
+    //'<button type="button" class="btn btn-primary" onclick="copy_clip(\'' + m_url + '\')">Copy</button></div>' +
+    '<kbd>Guest URL</kbd>' +
+    '<div class="col-8">' +
+    '<input type="text" class="form-control" id="g_link" value="' + g_url + '" onclick="auto_select(\'g_link\')" class="field left" readonly />' +
+    //'<button type="button" class="btn btn-primary" onclick="window.open(\'' + g_url + '\',\'_blank\'); return false;">Guest URL</button> ' +
+    '<button type="button" class="btn btn-primary" onclick="copy_clip(\'' + g_url + '\')">Copy</button></div>';
+    */
 }
 
 // For a guest
@@ -49,10 +75,6 @@ if(join != null) {
 }
 
 var ws = new WebSocket(ws_addr, "vchamber_v1");
-//var ws = new WebSocket("wss://echo.websocket.org");
-
-//var ws = new WebSocket("ws://129.213.173.180:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
-// var ws = new WebSocket("ws://localhost:8080/ws?rid=testroom&token=iamgod", "vchamber_v1");
 
 //SET DEFAULT VIDEO
 var video_src= {
@@ -580,4 +602,15 @@ function estimate_latency(send_t, serve_t, rec_t) {
         // console.log("Estimation: " + estimation);
         local_lat = estimation;
     // }
+}
+
+function copy_clip(url) {
+    var copyText = url;
+    navigator.clipboard.writeText(copyText);
+}
+
+function auto_select(id) {
+    var input = document.getElementById(id);
+    input.focus();
+    input.select();
 }

@@ -1,5 +1,6 @@
 #web_bg{
     position:fixed;
+    opacity: 0.5;
     top: 0;
     left: 0;
     width:100%;
@@ -15,33 +16,7 @@
     background-position: center 0;
 }
 
-#return_btn{
-    position:fixed;
-    top:0;
-    left:0;
-}
 
 #media_player{
-    position:fixed;
-    top: 15%;
-    left: 5%;
-    width:50%;
-    height:60%;
+    margin-top: 10%;
 }
-
-#youtubearea{
-    position:fixed;
-    top: 70%;
-    left: 5%;
-    width:50%;
-    height:10%;
-}
-
-#tokens{
-    position:fixed;
-    top: 75%;
-    left: 5%;
-    width:50%;
-    height:10%;
-}
-
