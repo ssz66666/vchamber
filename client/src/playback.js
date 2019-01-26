@@ -285,11 +285,13 @@ var stateChanged = function(evt){
             return
         }
     }
-    var msg = stateToJsonString()
-    send_message(msg)
-    console.log(evt.type)
-    console.log('proposing state change')
-    console.log(msg)
+    if(master_client != false && player.duration != 0){
+        var msg = stateToJsonString()
+        send_message(msg)
+        console.log(evt.type)
+        console.log('proposing state change')
+        console.log(msg)
+    }
 }
 
 var pauseEvtHandler = function(evt){
@@ -375,9 +377,6 @@ function write_document(id, text) {
 }
 
 function send_message(message){
-    if(master_client == false || player.duration == 0){
-        return;
-    }
     // if(!load_finished && JSON.parse(message).type == msg_type.stateupdate){
     //     load_finished = true;
     //     console.log("LOAD FINISHED");
