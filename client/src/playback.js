@@ -5,6 +5,7 @@ const m_token = urlParams.get('m');
 const g_token = urlParams.get("g");
 
 const PING_INTERVAL = 1000 // 1sec
+const duration_tolerance = 0.5 // 0.5 sec
 
 const player = new Plyr('#player');
 
@@ -222,7 +223,7 @@ var updateLocalState = function(newState){
             var playback_speed = playback_state.speed;
             missedLatestUpdate = false
             console.log("Buffering: " + player.buffered)
-            var tolerance = Math.max(local_lat, 0.1)
+            var tolerance = Math.max(local_lat, duration_tolerance)
             if((player.currentTime - playback_position > tolerance) || (player.currentTime - playback_position < -tolerance)){
                 if(playback_position == 0){
                     console.log("000000 RECEIVE")
