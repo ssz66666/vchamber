@@ -74,6 +74,10 @@ var video_src= {
     }]
 };
 player.source = video_src
+_lk = document.getElementById("youtubelink")
+if (_lk) {
+    _lk.value = video_src.sources[0].src
+}
 src_youtube = true;
 
 //var local_src = '';
@@ -192,6 +196,10 @@ ws.onmessage = function(evt) {
                 removePlyrEventHandlers()
                 video_src = src
                 player.source = video_src
+                _lk = document.getElementById("youtubelink")
+                if (_lk) {
+                    _lk.value = video_src.sources[0].src
+                }
                 addPlyrEventHandlers()
             }
             if(player.seeking && !stable_pause) {
@@ -431,6 +439,25 @@ function send_ping() {
 
 }
 
+function getProviderByUrl(url) {
+    // YouTube
+    if (/^(https?:\/\/)?(www\.)?(youtube\.com|youtube-nocookie\.com|youtu\.?be)\/.+$/.test(url)) {
+        return "youtube";
+    }
+
+    // Vimeo
+    if (/^https?:\/\/player.vimeo.com\/video\/\d{0,9}(?=\b|\/)/.test(url)) {
+        return "vimeo";
+    }
+
+    // Bilibili
+    if (/^https?:\/\/(www\.)?(bilibili\.com|acg\.tv|bilibili\.tv)\/(video\/)?av\d{1,}(?=\b|\/)/.test(url)) {
+        return "bilibili";
+    }
+
+    return null;
+}
+
 function newUrl(){
     if(master_client == false){
         return;
@@ -454,13 +481,25 @@ function newUrl(){
     if(youtube_url != ''){
         console.log("YOUTUBE:"+youtube_url)
         removePlyrEventHandlers()
-        video_src = {
-            type: 'video',
-            sources: [{
-                src: youtube_url,
-                provider: 'youtube'
-            }]
-        };
+        provider = getProviderByUrl(youtube_url)
+        if (provider) {
+            video_src = {
+                type: 'video',
+                sources: [{
+                    src: youtube_url,
+                    provider: provider,
+                }]
+            };
+        } else {
+            video_src = {
+                type: 'video',
+                sources: [{
+                    src: youtube_url,
+                    type: "video/mp4",
+                }]
+            };
+        }
+        
         player.source = video_src;
         src_youtube = true;
         addPlyrEventHandlers();
